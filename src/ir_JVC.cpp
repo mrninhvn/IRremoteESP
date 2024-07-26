@@ -13,7 +13,9 @@
 #include <algorithm>
 #include "IRrecv.h"
 #include "IRsend.h"
+#ifndef ESP32_RMT
 #include "IRtimer.h"
+#endif //ESP32_RMT
 #include "IRutils.h"
 
 // Constants
@@ -43,11 +45,12 @@ const uint16_t kJvcMinGap = kJvcMinGapTicks * kJvcTick;
 /// @param[in] nbits The number of bits of message to be sent.
 /// @param[in] repeat The number of times the command is to be repeated.
 /// @see http://www.sbprojects.net/knowledge/ir/jvc.php
-void IRsend::sendJVC(uint64_t data, uint16_t nbits, uint16_t repeat) {
+void IRsend::sendJVC(uint64_t data, uint16_t nbits, uint16_t repeat) {    
   // Set 38kHz IR carrier frequency & a 1/3 (33%) duty cycle.
   enableIROut(38, 33);
-
+#if !defined(ESP32_RMT)
   IRtimer usecs = IRtimer();
+#endif  
   // Header
   // Only sent for the first message.
   mark(kJvcHdrMark);
@@ -60,13 +63,18 @@ void IRsend::sendJVC(uint64_t data, uint16_t nbits, uint16_t repeat) {
                 kJvcBitMark, kJvcMinGap, data, nbits, 38, true,
                 0,  // Repeats are handles elsewhere.
                 33);
+#if !defined(ESP32_RMT)    
     // Wait till the end of the repeat time window before we send another code.
     uint32_t elapsed = usecs.elapsed();
     // Avoid potential unsigned integer underflow.
     // e.g. when elapsed > kJvcRptLength.
     if (elapsed < kJvcRptLength) space(kJvcRptLength - elapsed);
     usecs.reset();
-  }
+#endif  // ESP32_RMT
+  } 
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38);
+#endif // ESP32_RMT     
 }
 
 /// Calculate the raw JVC data based on address and command.

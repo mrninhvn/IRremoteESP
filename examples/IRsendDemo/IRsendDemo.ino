@@ -32,7 +32,7 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 
-const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+const uint16_t kIrLed = 13;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
 
@@ -49,6 +49,7 @@ uint8_t samsungState[kSamsungAcStateLength] = {
     0x02, 0x92, 0x0F, 0x00, 0x00, 0x00, 0xF0,
     0x01, 0xE2, 0xFE, 0x71, 0x40, 0x11, 0xF0};
 
+uint16_t rawSamsung[135] = {4510, 4432,  576, 1650,  578, 1652,  576, 1650,  578, 536,  578, 536,  578, 534,  578, 536,  576, 536,  576, 1652,  576, 1650,  578, 1650,  576, 536,  578, 536,  578, 536,  576, 538,  576, 536,  576, 536,  578, 536,  576, 1652,  576, 536,  578, 536,  576, 536,  576, 538,  576, 536,  578, 1650,  578, 1650,  578, 536,  576, 1652,  576, 1652,  576, 1652,  576, 1650,  578, 1650,  576, 46788,  4512, 4430,  578, 1628,  598, 1652,  576, 1650,  578, 536,  576, 536,  578, 536,  578, 536,  578, 536,  578, 1650,  576, 1652,  576, 1652,  578, 536,  576, 538,  578, 536,  576, 536,  578, 536,  578, 536,  578, 514,  600, 1650,  576, 536,  578, 536,  576, 536,  578, 536,  578, 536,  576, 1650,  576, 1652,  576, 538,  576, 1650,  576, 1650,  578, 1650,  578, 1650,  578, 1650,  576};  // SAMSUNG E0E020DF
 void setup() {
   irsend.begin();
 #if ESP8266
@@ -59,7 +60,7 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("NEC");
+  /*Serial.println("NEC");
   irsend.sendNEC(0x00FFE01FUL);
   delay(2000);
   Serial.println("Sony");
@@ -70,5 +71,14 @@ void loop() {
   delay(2000);
   Serial.println("a Samsung A/C state from IRrecvDumpV2");
   irsend.sendSamsungAC(samsungState);
-  delay(2000);
+  delay(2000);*/
+  Serial.println("a Samsung");
+  //irsend.sendRaw(rawSamsung,135,38);
+  //irsend.sendSAMSUNG(0xE0E020DF);
+  irsend.sendSAMSUNG(0xE0E0E01F);
+
+
+
+  
+  delay(5000);
 }

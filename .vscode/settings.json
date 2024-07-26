@@ -1,5 +1,10 @@
 {
     "python.linting.pylintEnabled": true,
     "python.linting.flake8Enabled": false,
-    "python.formatting.provider": "yapf"
+    "python.formatting.provider": "yapf",
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#5E0B0E",
+        "titleBar.activeBackground": "#841014",
+        "titleBar.activeForeground": "#FFFBFB"
+    }
 }

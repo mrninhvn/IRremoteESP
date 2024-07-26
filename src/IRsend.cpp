@@ -13,7 +13,10 @@
 #ifdef UNIT_TEST
 #include <cmath>
 #endif
+
+#ifndef ESP32_RMT
 #include "IRtimer.h"
+#endif //ESP32_RMT
 
 /// Constructor for an IRsend object.
 /// @param[in] IRsendPin Which GPIO pin to use when sending an IR command.
@@ -27,6 +30,7 @@
 ///  duty cycle etc.
 IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
     : IRpin(IRsendPin), periodOffset(kPeriodOffset) {
+  #ifndef ESP32_RMT    
   if (inverted) {
     outputOn = LOW;
     outputOff = HIGH;
@@ -39,16 +43,40 @@ IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
     _dutycycle = kDutyDefault;
   else
     _dutycycle = kDutyMax;
+  #endif // ESP32_RMT  
 }
 
 /// Enable the pin for output.
 void IRsend::begin() {
+#ifndef ESP32_RMT      
 #ifndef UNIT_TEST
   pinMode(IRpin, OUTPUT);
 #endif
   ledOff();  // Ensure the LED is in a known safe state when we start.
+#else
+  // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html
+  // https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h RMT_DEFAULT_CONFIG_TX
+  // put your setup code here, to run once:
+  _configTx.rmt_mode = RMT_MODE_TX;
+  _configTx.channel = sendRmtChannel;
+  _configTx.gpio_num = (gpio_num_t) IRpin;
+  _configTx.mem_block_num = 1;
+  _configTx.tx_config.loop_en = false;
+  _configTx.tx_config.carrier_duty_percent = 33; //50;
+  _configTx.tx_config.carrier_freq_hz = 38*1000;
+  _configTx.tx_config.carrier_en = 1;
+  _configTx.tx_config.idle_output_en = 1;
+  _configTx.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+  _configTx.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
+  _configTx.clk_div = 80; // 80MHx / 80 = 1MHz 0r 1uS per count
+
+  ESP_ERROR_CHECK(rmt_config(&_configTx));
+  ESP_ERROR_CHECK(rmt_driver_install(_configTx.channel, 1000, 0));
+
+#endif // ESP32_RMT  
 }
 
+#if !defined(ESP32_RMT)
 /// Turn off the IR LED.
 void IRsend::ledOff() {
 #ifndef UNIT_TEST
@@ -62,6 +90,7 @@ void IRsend::ledOn() {
   digitalWrite(IRpin, outputOn);
 #endif
 }
+#endif // ESP32_RMT
 
 /// Calculate the period for a given frequency.
 /// @param[in] hz Frequency in Hz.
@@ -90,6 +119,7 @@ uint32_t IRsend::calcUSecPeriod(uint32_t hz, bool use_offset) {
 ///  microseconds timing. Thus minor changes to the freq & duty values may have
 ///  limited effect. You've been warned.
 void IRsend::enableIROut(uint32_t freq, uint8_t duty) {
+#ifndef ESP32_RMT
   // Set the duty cycle to use if we want freq. modulation.
   if (modulation) {
     _dutycycle = std::min(duty, kDutyMax);
@@ -106,8 +136,13 @@ void IRsend::enableIROut(uint32_t freq, uint8_t duty) {
   onTimePeriod = (period * _dutycycle) / kDutyMax;
   // Nr. of uSeconds the LED will be off per pulse.
   offTimePeriod = period - onTimePeriod;
+#else 
+  _configTx.tx_config.carrier_freq_hz = freq*1000;  
+  ESP_ERROR_CHECK(rmt_config(&_configTx));  
+#endif // ESP32_RMT  
 }
 
+#if !defined(ESP32_RMT)
 #if ALLOW_DELAY_CALLS
 /// An ESP8266 RTOS watch-dog timer friendly version of delayMicroseconds().
 /// @param[in] usec Nr. of uSeconds to delay for.
@@ -140,6 +175,7 @@ void IRsend::_delayMicroseconds(uint32_t usec) {
 #endif  // UNIT_TEST
 }
 #endif  // ALLOW_DELAY_CALLS
+#endif  // ESP32_RMT
 
 /// Modulate the IR LED for the given period (usec) and at the duty cycle set.
 /// @param[in] usec The period of time to modulate the IR LED for, in
@@ -155,13 +191,16 @@ void IRsend::_delayMicroseconds(uint32_t usec) {
 /// Ref:
 ///   https://www.analysir.com/blog/2017/01/29/updated-esp8266-nodemcu-backdoor-upwm-hack-for-ir-signals/
 uint16_t IRsend::mark(uint16_t usec) {
-  // Handle the simple case of no required frequency modulation.
-  if (!modulation || _dutycycle >= 100) {
+
+  #ifndef ESP32_RMT  
+  // Handle the simple case of no required frequency modulation.  
+  if (!modulation || _dutycycle >= 100) {    
     ledOn();
     _delayMicroseconds(usec);
     ledOff();
     return 1;
   }
+
 
   // Not simple, so do it assuming frequency modulation.
   uint16_t counter = 0;
@@ -185,16 +224,27 @@ uint16_t IRsend::mark(uint16_t usec) {
     elapsed = usecTimer.elapsed();  // Update & recache the actual elapsed time.
   }
   return counter;
+  #else  
+  this->_sendRawbuf[this->_rawBufCounter] = usec;
+  this->_rawBufCounter++;  
+  return 1;
+  #endif
 }
 
 /// Turn the pin (LED) off for a given time.
 /// Sends an IR space for the specified number of microseconds.
 /// A space is no output, so the PWM output is disabled.
 /// @param[in] time Time in microseconds (us).
-void IRsend::space(uint32_t time) {
+void IRsend::space(uint32_t time) {  
+  #ifndef ESP32_RMT
   ledOff();
   if (time == 0) return;
   _delayMicroseconds(time);
+  #else 
+  //ESP_LOGE("TEST", "Space: %d",time);
+  this->_sendRawbuf[this->_rawBufCounter] = time;
+  this->_rawBufCounter++;
+  #endif
 }
 
 /// Calculate & set any offsets to account for execution times during sending.
@@ -205,11 +255,12 @@ void IRsend::space(uint32_t time) {
 /// @note This will generate an 65535us mark() IR LED signal.
 ///  This only needs to be called once, if at all.
 int8_t IRsend::calibrate(uint16_t hz) {
+#ifndef ESP32_RMT
   if (hz < 1000)  // Were we given kHz? Supports the old call usage.
     hz *= 1000;
   periodOffset = 0;  // Turn off any existing offset while we calibrate.
-  enableIROut(hz);
-  IRtimer usecTimer = IRtimer();  // Start a timer *just* before we do the call.
+  enableIROut(hz);  
+  IRtimer usecTimer = IRtimer();  // Start a timer *just* before we do the call.  
   uint16_t pulses = mark(UINT16_MAX);  // Generate a PWM of 65,535 us. (Max.)
   uint32_t timeTaken = usecTimer.elapsed();  // Record the time it took.
   // While it shouldn't be necessary, assume at least 1 pulse, to avoid a
@@ -230,6 +281,9 @@ int8_t IRsend::calibrate(uint16_t hz) {
   // Store the difference between the actual time per period vs. calculated.
   periodOffset = (int8_t)((double_t)calcPeriod - actualPeriod);
   return periodOffset;
+#else 
+    return 0;
+#endif  // ESP32_RMT
 }
 
 /// Generic method for sending data that is common to most protocols.
@@ -354,13 +408,22 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
                          const uint16_t nbits, const uint16_t frequency,
                          const bool MSBfirst, const uint16_t repeat,
                          const uint8_t dutycycle) {
+#if !defined(ESP32_RMT)
   // Setup
   enableIROut(frequency, dutycycle);
   IRtimer usecs = IRtimer();
+#endif  // ESP32_RMT
 
   // We always send a message, even for repeat=0, hence '<= repeat'.
   for (uint16_t r = 0; r <= repeat; r++) {
+
+#if defined(ESP32_RMT)
+    // TODO RMT: Calc this please    
+    this->_sendRawbuf = new uint16_t[200];
+    this->_rawBufCounter = 0;
+#else
     usecs.reset();
+#endif // ESP32_RMT
 
     // Header
     if (headermark) mark(headermark);
@@ -371,12 +434,21 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
 
     // Footer
     if (footermark) mark(footermark);
+
+  #ifdef ESP32_RMT     
+    space(gap);
+  #else    
     uint32_t elapsed = usecs.elapsed();
     // Avoid potential unsigned integer underflow. e.g. when mesgtime is 0.
     if (elapsed >= mesgtime)
       space(gap);
     else
       space(std::max(gap, mesgtime - elapsed));
+#endif  // ESP32_RMT
+
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
+#endif // ESP32_RMT  
   }
 }
 
@@ -430,6 +502,10 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
     if (footermark) mark(footermark);
     space(gap);
   }
+
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
+#endif // ESP32_RMT  
 }
 
 /// Generic method for sending Manchester code data.
@@ -525,6 +601,10 @@ void IRsend::sendManchester(const uint16_t headermark,
     if (footermark) mark(footermark);
     if (gap) space(gap);
   }
+
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
+#endif // ESP32_RMT    
 }
 
 #if SEND_RAW
@@ -540,6 +620,7 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
                      const uint16_t hz) {
   // Set IR carrier frequency
   enableIROut(hz);
+#ifndef ESP32_RMT
   for (uint16_t i = 0; i < len; i++) {
     if (i & 1) {  // Odd bit.
       space(buf[i]);
@@ -548,6 +629,25 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
     }
   }
   ledOff();  // We potentially have ended with a mark(), so turn of the LED.
+#else 
+  // build buffer for rmt  
+  if(len % 2 != 0) {    
+    return;
+  }
+
+  uint16_t itemLen = len / 2;
+  rmt_item32_t items[itemLen];
+  
+  for(size_t i=0; i < itemLen; i++) {            
+    items[i].duration0 = buf[i * 2];    
+    items[i].level0 = 1;
+    items[i].duration1 = buf[i * 2 + 1];    
+    items[i].level1 = 0;
+  }
+  rmt_write_items(_configTx.channel, items, itemLen, 1);
+
+
+#endif // ESP32_RMT
 }
 #endif  // SEND_RAW
 

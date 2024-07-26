@@ -52,6 +52,11 @@
 #include <string>
 #endif  // UNIT_TEST
 
+
+#ifdef ESP32_RMT
+#include <driver/rmt.h>
+#endif
+
 // Library Version Information
 // Major version number (X.x.x)
 #define _IRREMOTEESP8266_VERSION_MAJOR 2
@@ -76,6 +81,7 @@
                                      MKSTR(_IRREMOTEESP8266_VERSION_PATCH)
 // String version (DEPRECATED)
 #define _IRREMOTEESP8266_VERSION_ _IRREMOTEESP8266_VERSION_STR
+
 
 // Set the language & locale for the library. See the `locale` dir for options.
 #ifndef _IR_LOCALE_
@@ -1000,7 +1006,7 @@
 //         decoding of some protocols. You have been warned. Here Be Dragons!
 //
 // See: `irrecv::decode()` in IRrecv.cpp for more info.
-#ifndef ENABLE_NOISE_FILTER_OPTION
+#if !defined(ENABLE_NOISE_FILTER_OPTION) && !defined(ESP32_RMT)
 #define ENABLE_NOISE_FILTER_OPTION true
 #endif  // ENABLE_NOISE_FILTER_OPTION
 

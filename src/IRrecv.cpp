@@ -34,7 +34,7 @@ extern "C" {
 #define USE_IRAM_ATTR ICACHE_RAM_ATTR
 #endif  // IRAM_ATTR
 #endif  // ESP8266
-#if defined(ESP32)
+#if defined(ESP32) && !defined(ESP32_RMT)
 #define USE_IRAM_ATTR IRAM_ATTR
 #endif  // ESP32
 #endif  // USE_IRAM_ATTR
@@ -50,6 +50,7 @@ extern "C" {
 
 // Globals
 #ifndef UNIT_TEST
+#ifndef ESP32_RMT
 #if defined(ESP8266)
 namespace _IRrecv {
 static ETSTimer timer;
@@ -138,23 +139,30 @@ static hw_timer_t * timer = NULL;
 }  // namespace _IRrecv
 #endif  // ESP32
 using _IRrecv::timer;
+#endif // ESP32_RMT
 #endif  // UNIT_TEST
 
 namespace _IRrecv {  // Namespace extension
-#if defined(ESP32)
+#if defined(ESP32) and !defined(ESP32_RMT)
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 #endif  // ESP32
 volatile irparams_t params;
+#if !defined(ESP32_RMT)
 irparams_t *params_save;  // A copy of the interrupt state while decoding.
+#endif // ESP32_RMT
 }  // namespace _IRrecv
 
-#if defined(ESP32)
+#if defined(ESP32)  and !defined(ESP32_RMT)
 using _IRrecv::mux;
 #endif  // ESP32
 using _IRrecv::params;
+
+#if !defined(ESP32_RMT)
 using _IRrecv::params_save;
+#endif // ESP32_RMT
 
 #ifndef UNIT_TEST
+#ifndef ESP32_RMT
 #if defined(ESP8266)
 /// Interrupt handler for when the timer runs out.
 /// It signals to the library that capturing of IR data has stopped.
@@ -247,6 +255,7 @@ static void USE_IRAM_ATTR gpio_intr() {
 #endif  // _ESP32_IRRECV_TIMER_HACK
 #endif  // ESP32
 }
+#endif // ESP32_RMT
 #endif  // UNIT_TEST
 
 // Start of IRrecv class -------------------
@@ -263,10 +272,11 @@ static void USE_IRAM_ATTR gpio_intr() {
 ///   (Default: false)
 /// @param[in] timer_num Nr. of the ESP32 timer to use. (0 to 3) (ESP32 Only)
 ///   or (0 to 1) (ESP32-C3)
-#if defined(ESP32)
+#if defined(ESP32) && !defined(ESP32_RMT)
 IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
                const uint8_t timeout, const bool save_buffer,
                const uint8_t timer_num) {
+#ifndef ESP32_RMT
   // Ensure we use a valid timer number.
   _timer_num = std::min(timer_num,
                         (uint8_t)(
@@ -275,6 +285,30 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
 #else  // SOC_TIMER_GROUP_TOTAL_TIMERS
                                   3));
 #endif  // SOC_TIMER_GROUP_TOTAL_TIMERS
+#endif  // ESP32_RMT
+#elif defined(ESP32_RMT)
+/// Class constructor
+/// Args:
+/// @param[in] recvpin The GPIO pin the IR receiver module's data pin is
+///   connected to.
+/// @param[in] timeout Nr. of milli-Seconds of no signal before we stop
+///   capturing data. (Default: kTimeoutMs)
+/// @param[in] rmtChannel Which rmt channel to use. (Default: kRecvRmtChannel)
+/// @param[in] rmtMemBlockNum How many rmt mem Blocks to use.
+///   (Default: kRecvRmtMemBlockNum)
+/// @param[in] rmtTicksToWait How many ticks to block for checking for data.
+///   (Default: kRecvRmtTicksToWait)
+/// @param[in] rmtFilterShortToIgnore Short lenght of pulses to ignore.
+///   (Default: kRmtFilterShortToIgnore)
+/// @param[in] rmtFilterLongToIgnore Long lenght of pulses to ignore.
+///   (Default: kRmtFilterLongToIgnore)
+IRrecv::IRrecv(const uint16_t recvpin,
+               const uint8_t timeout,
+               const rmt_channel_t rmtChannel,
+               const uint8_t rmtMemBlockNum,
+               const TickType_t rmtTicksToWait,
+               const uint8_t rmtFilterShortToIgnore,
+               const uint16_t rmtFilterLongToIgnore) {
 #else  // ESP32
 /// @cond IGNORE
 /// Class constructor
@@ -292,10 +326,11 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
 /// @endcond
 #endif  // ESP32
   params.recvpin = recvpin;
-  params.bufsize = bufsize;
   // Ensure we are going to be able to store all possible values in the
   // capture buffer.
   params.timeout = std::min(timeout, (uint8_t)kMaxTimeoutMs);
+#if !defined(ESP32_RMT)
+  params.bufsize = bufsize;
   params.rawbuf = new uint16_t[bufsize];
   if (params.rawbuf == NULL) {
     DPRINTLN(
@@ -321,6 +356,14 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
   } else {
     params_save = NULL;
   }
+#else
+  params.rmtChannel = rmtChannel;
+  params.rmtMemBlockNum = rmtMemBlockNum;
+  params.rmtTicksToWait = rmtTicksToWait;
+  params.rmtFilterShortToIgnore = rmtFilterShortToIgnore;
+  params.rmtFilterLongToIgnore = rmtFilterLongToIgnore;
+#endif // ESP32_RMT
+
 #if DECODE_HASH
   _unknown_threshold = kUnknownThreshold;
 #endif  // DECODE_HASH
@@ -334,13 +377,18 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
 IRrecv::~IRrecv(void) {
   disableIRIn();
 #if defined(ESP32)
+#ifndef ESP32_RMT
   if (timer != NULL) timerEnd(timer);  // Cleanup the ESP32 timeout timer.
+#endif //  ESP32_RMT
 #endif  // ESP32
+
+#if !defined(ESP32_RMT)
   delete[] params.rawbuf;
   if (params_save != NULL) {
     delete[] params_save->rawbuf;
     delete params_save;
   }
+#endif
 }
 
 /// Set up and (re)start the IR capture mechanism.
@@ -357,6 +405,7 @@ void IRrecv::enableIRIn(const bool pullup) {
 #endif  // UNIT_TEST
   }
 #if defined(ESP32)
+#ifndef ESP32_RMT
   // Initialise the ESP32 timer.
   // 80MHz / 80 = 1 uSec granularity.
   timer = timerBegin(_timer_num, 80, true);
@@ -373,10 +422,30 @@ void IRrecv::enableIRIn(const bool pullup) {
   // Note: EDGE (true) is not supported, use LEVEL (false). Ref: #1713
   // See: https://github.com/espressif/arduino-esp32/blob/caef4006af491130136b219c1205bdcf8f08bf2b/cores/esp32/esp32-hal-timer.c#L224-L227
   timerAttachInterrupt(timer, &read_timeout, false);
+#else
+  _configRx.rmt_mode = RMT_MODE_RX;
+  _configRx.channel = params.rmtChannel;
+  _configRx.gpio_num = (gpio_num_t) params.recvpin;
+  _configRx.mem_block_num = params.rmtMemBlockNum; // 1 ? was default, make it configable
+  // Enables the filter for signals to ignore
+  _configRx.rx_config.filter_en = true;
+  // Pulses shorter than this will be ignored
+  _configRx.rx_config.filter_ticks_thresh = params.rmtFilterShortToIgnore;
+  // Pulses longer than this will be ignored
+  _configRx.rx_config.idle_threshold = params.rmtFilterLongToIgnore;
+  _configRx.clk_div = 80; // 80MHx / 80 = 1MHz 0r 1uS per count
+
+  ESP_ERROR_CHECK(rmt_config(&_configRx));
+  ESP_ERROR_CHECK(rmt_driver_install(_configRx.channel, 1000, 0));
+  rmt_rx_start(params.rmtChannel, 1);
+  rmt_get_ringbuf_handle(params.rmtChannel, &(this->_rb));
+#endif // ESP32_RMT
 #endif  // ESP32
 
+#if !defined(ESP32_RMT)
   // Initialise state machine variables
   resume();
+#endif // ESP32_RMT
 
 #ifndef UNIT_TEST
 #if defined(ESP8266)
@@ -386,26 +455,34 @@ void IRrecv::enableIRIn(const bool pullup) {
                  NULL);
 #endif  // ESP8266
   // Attach Interrupt
+#ifndef ESP32_RMT
   attachInterrupt(params.recvpin, gpio_intr, CHANGE);
+#endif  // ESP32_RMT
 #endif  // UNIT_TEST
 }
 
 /// Stop collection of any received IR data.
 /// Disable any timers and interrupts.
+//TODO RMT: Disable rmt ?
 void IRrecv::disableIRIn(void) {
 #ifndef UNIT_TEST
 #if defined(ESP8266)
   os_timer_disarm(&timer);
 #endif  // ESP8266
 #if defined(ESP32)
+#ifndef ESP32_RMT
   timerAlarmDisable(timer);
   timerDetachInterrupt(timer);
   timerEnd(timer);
+#endif // ESP32_RMT
 #endif  // ESP32
+#ifndef ESP32_RMT
   detachInterrupt(params.recvpin);
+#endif
 #endif  // UNIT_TEST
 }
 
+#if !defined(ESP32_RMT)
 /// Pause collection of received IR data.
 /// @see IRrecv class constructor
 void IRrecv::pause(void) {
@@ -427,6 +504,7 @@ void IRrecv::resume(void) {
   params.overflow = false;
 #if defined(ESP32)
   timerAlarmDisable(timer);
+  gpio_intr_enable((gpio_num_t)params.recvpin);
   gpio_intr_enable((gpio_num_t)params.recvpin);
 #endif  // ESP32
 }
@@ -462,6 +540,7 @@ void IRrecv::copyIrParams(volatile irparams_t *src, irparams_t *dst) {
 /// i.e. It's size.
 /// @return The size of the buffer that is in use by the object.
 uint16_t IRrecv::getBufSize(void) { return params.bufsize; }
+#endif //ESP32_RMT
 
 #if DECODE_HASH
 /// Set the minimum length we will consider for reporting UNKNOWN message types.
@@ -553,6 +632,10 @@ void IRrecv::crudeNoiseFilter(decode_results *results, const uint16_t floor) {
 /// @return A boolean indicating if an IR message is ready or not.
 bool IRrecv::decode(decode_results *results, irparams_t *save,
                     uint8_t max_skip, uint16_t noise_floor) {
+
+
+#if !defined(ESP32_RMT)
+  bool resumed = false;  // Flag indicating if we have resumed.
   // Proceed only if an IR message been received.
 #ifndef UNIT_TEST
   if (params.rcvstate != kStopState) return false;
@@ -570,7 +653,7 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
   // See: https://github.com/crankyoldgit/IRremoteESP8266/issues/1516
   if (!params.overflow) params.rawbuf[params.rawlen] = 0;
 
-  bool resumed = false;  // Flag indicating if we have resumed.
+  //bool resumed = false;  // Flag indicating if we have resumed.
 
   // If we were requested to use a save buffer previously, do so.
   if (save == NULL) save = params_save;
@@ -603,6 +686,36 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
 #if ENABLE_NOISE_FILTER_OPTION
   crudeNoiseFilter(results, noise_floor);
 #endif  // ENABLE_NOISE_FILTER_OPTION
+#else
+  rmt_item32_t *items = NULL;
+  size_t length = 0;
+
+  items = (rmt_item32_t *) xRingbufferReceive(this->_rb, &length, params.rmtTicksToWait);
+  if(items) {
+    results->decode_type = UNKNOWN;
+    results->bits = 0;
+    results->value = 0;
+    results->address = 0;
+    results->command = 0;
+    results->repeat = false;
+    // length / 2 because we have always a duration 0 and 1
+    results->rawbuf = new uint16_t[length / 2];
+    results->rawlen = length;
+    results->overflow = false;
+    length /= 4; // one RMT = 4 Bytes d0 d1 l0 l1
+    for(size_t i=0; i < (length); i++) {
+      //ESP_LOGE("TEST","[i: %d] val: %d l0: %d l1: %d d0: %d d1 %d", i, items[i].val,items[i].level0, items[i].level1, items[i].duration0, items[i].duration1);
+      results->rawbuf[i * 2] = items[i].duration0;
+      results->rawbuf[i * 2 + 1] = items[i].duration1;
+    }
+    //after parsing the data, return spaces to ringbuffer.
+    vRingbufferReturnItem(this->_rb, (void *) items);
+  } else {
+    return false;
+  }
+
+
+#endif // ESP32_RMT
   // Keep looking for protocols until we've run out of entries to skip or we
   // find a valid protocol message.
   for (uint16_t offset = kStartOffset;
@@ -1195,9 +1308,12 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     return true;
   }
 #endif  // DECODE_HASH
+
+#if !defined(ESP32_RMT)
   // Throw away and start over
   if (!resumed)  // Check if we have already resumed.
     resume();
+#endif // ESP32_RMT
   return false;
 }  // NOLINT(readability/fn_size)
 
@@ -1284,6 +1400,7 @@ bool IRrecv::matchAtLeast(uint32_t measured, uint32_t desired,
   DPRINT(" [min(");
   DPRINT(ticksLow(desired, tolerance, delta));
   DPRINT(", ");
+
   DPRINT(ticksLow(MS_TO_USEC(params.timeout), tolerance, delta));
   DPRINTLN(")]");
 #ifdef UNIT_TEST

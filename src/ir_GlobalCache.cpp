@@ -57,7 +57,11 @@ void IRsend::sendGC(uint16_t buf[], uint16_t len) {
         space(microseconds);
     }
   }
+#if !defined(ESP32_RMT)  
   // It's possible that we've ended on a mark(), thus ensure the LED is off.
   ledOff();
+#else
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, hz);  
+#endif // ESP32_RMT  
 }
 #endif

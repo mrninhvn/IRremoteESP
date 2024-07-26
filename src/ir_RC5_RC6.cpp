@@ -21,7 +21,9 @@
 #include <algorithm>
 #include "IRrecv.h"
 #include "IRsend.h"
+#ifndef ESP32_RMT
 #include "IRtimer.h"
+#endif //ESP32_RMT
 #include "IRutils.h"
 
 // Constants
@@ -59,7 +61,7 @@ const int16_t kSpace = 1;
 ///   For RC-5X it is the 2nd MSB of the data.
 /// @todo Testing of the RC-5X components.
 void IRsend::sendRC5(const uint64_t data, uint16_t nbits,
-                     const uint16_t repeat) {
+                     const uint16_t repeat) {  
   if (nbits > sizeof(data) * 8) return;  // We can't send something that big.
   bool skipSpace = true;
   bool field_bit = true;
@@ -71,10 +73,13 @@ void IRsend::sendRC5(const uint64_t data, uint16_t nbits,
     field_bit = ((data >> (nbits - 1)) ^ 1) & 1;
     nbits--;
   }
-
+#if !defined(ESP32_RMT)
   IRtimer usecTimer = IRtimer();
+#endif // ESP32_RMT  
   for (uint16_t i = 0; i <= repeat; i++) {
+#if !defined(ESP32_RMT)          
     usecTimer.reset();
+#endif // ESP32_RMT    
 
     // Header
     // First start bit (0x1). space, then mark.
@@ -102,8 +107,16 @@ void IRsend::sendRC5(const uint64_t data, uint16_t nbits,
         space(kRc5T1);
       }
     // Footer
+#if !defined(ESP32_RMT)          
     space(std::max(kRc5MinGap, kRc5MinCommandLength - usecTimer.elapsed()));
+#else 
+    space(std::max(kRc5MinGap, kRc5MinCommandLength));
+#endif // ESP32_RMT    
   }
+
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, 36);
+#endif // ESP32_RMT  
 }
 
 /// Encode a Philips RC-5 data message.

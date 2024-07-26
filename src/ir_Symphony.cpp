@@ -31,7 +31,9 @@
 #include <algorithm>
 #include "IRrecv.h"
 #include "IRsend.h"
+#ifndef ESP32_RMT
 #include "IRtimer.h"
+#endif //ESP32_RMT
 #include "IRutils.h"
 
 // Constants

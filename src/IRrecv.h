@@ -17,7 +17,16 @@
 // Constants
 const uint16_t kHeader = 2;        // Usual nr. of header entries.
 const uint16_t kFooter = 2;        // Usual nr. of footer (stop bits) entries.
+#if !defined(ESP32_RMT)
 const uint16_t kStartOffset = 1;   // Usual rawbuf entry to start from.
+#else
+const uint16_t kStartOffset = 0;   // Usual rawbuf entry to start from.
+const rmt_channel_t kRecvRmtChannel = RMT_CHANNEL_3; // rmt channel for receiving ir signals
+const uint8_t kRecvRmtMemBlockNum = 1; // how many mem blocks to use for receiving
+const TickType_t kRecvRmtTicksToWait = 100; // how many ticks to wait for reading rmt to buffer
+const uint8_t kRmtFilterShortToIgnore = 100; // pulses that short are ignored
+const uint16_t kRmtFilterLongToIgnore = 12000; // pulses that are longer are ignored
+#endif // ESP32_RMT
 #define MS_TO_USEC(x) ((x) * 1000U)  // Convert milli-Seconds to micro-Seconds.
 // Marks tend to be 100us too long, and spaces 100us too short
 // when received due to sensor lag.
@@ -28,13 +37,17 @@ const uint64_t kRepeat = UINT64_MAX;
 const uint16_t kUnknownThreshold = 6;
 
 // receiver states
+const uint8_t kTolerance = 25;   // default percent tolerance in measurements.
+const uint8_t kUseDefTol = 255;  // Indicate to use the class default tolerance.
+#if !defined(ESP32_RMT)
 const uint8_t kIdleState = 2;
 const uint8_t kMarkState = 3;
 const uint8_t kSpaceState = 4;
 const uint8_t kStopState = 5;
-const uint8_t kTolerance = 25;   // default percent tolerance in measurements.
-const uint8_t kUseDefTol = 255;  // Indicate to use the class default tolerance.
 const uint16_t kRawTick = 2;     // Capture tick to uSec factor.
+#else
+const uint16_t kRawTick = 1;     // Capture tick to uSec factor.
+#endif // ESP32_RMT
 #define RAWTICK kRawTick  // Deprecated. For legacy user code support only.
 // How long (ms) before we give up wait for more data?
 // Don't exceed kMaxTimeoutMs without a good reason.
@@ -53,6 +66,7 @@ const uint32_t kFnvPrime32 = 16777619UL;
 const uint32_t kFnvBasis32 = 2166136261UL;
 
 #ifdef ESP32
+#if !defined(ESP32_RMT)
 // Which of the ESP32 timers to use by default.
 // (3 for most ESP32s, 1 for ESP32-C3s)
 #ifdef SOC_TIMER_GROUP_TOTAL_TIMERS
@@ -60,6 +74,7 @@ const uint8_t kDefaultESP32Timer = SOC_TIMER_GROUP_TOTAL_TIMERS - 1;
 #else  // SOC_TIMER_GROUP_TOTAL_TIMERS
 const uint8_t kDefaultESP32Timer = 3;
 #endif  // SOC_TIMER_GROUP_TOTAL_TIMERS
+#endif // ESP32_RMT
 #endif  // ESP32
 
 #if DECODE_AC
@@ -75,6 +90,7 @@ const uint16_t kStateSizeMax = sizeof(uint64_t);
 /// Information for the interrupt handler
 typedef struct {
   uint8_t recvpin;   // pin for IR data from detector
+#if !defined(ESP32_RMT)
   uint8_t rcvstate;  // state machine
   uint16_t timer;    // state timer, counts 50uS ticks.
   uint16_t bufsize;  // max. nr. of entries in the capture buffer.
@@ -83,6 +99,13 @@ typedef struct {
   // handler. Don't ask why, I don't know. It just does.
   uint16_t rawlen;   // counter of entries in rawbuf.
   uint8_t overflow;  // Buffer overflow indicator.
+#else
+  rmt_channel_t rmtChannel; // rmt channel for receiving ir signals
+  uint8_t rmtMemBlockNum; // how many mem blocks to use for receiving
+  TickType_t rmtTicksToWait; // how long to wait to read item from channel
+  uint8_t rmtFilterShortToIgnore; // Pulses shorter than this will be ignored
+  uint16_t rmtFilterLongToIgnore; // Pulses longer than this will be ignored
+#endif  // ESP32_RMT
   uint8_t timeout;   // Nr. of milliSeconds before we give up.
 } irparams_t;
 
@@ -120,13 +143,21 @@ class decode_results {
 /// Class for receiving IR messages.
 class IRrecv {
  public:
-#if defined(ESP32)
+#if defined(ESP32) && !defined(ESP32_RMT)
   explicit IRrecv(const uint16_t recvpin, const uint16_t bufsize = kRawBuf,
                   const uint8_t timeout = kTimeoutMs,
                   const bool save_buffer = false,
                   const uint8_t timer_num = kDefaultESP32Timer);  // Constructor
+#elif defined(ESP32_RMT)
+  explicit IRrecv(const uint16_t recvpin,
+                  const uint8_t timeout = kTimeoutMs,
+                  const rmt_channel_t rmtChannel = kRecvRmtChannel,
+                  const uint8_t rmtMemBlockNum = kRecvRmtMemBlockNum,
+                  const TickType_t rmtTicksToWait = kRecvRmtTicksToWait,
+                  const uint8_t rmtFilterShortToIgnore = kRmtFilterShortToIgnore,
+                  const uint16_t rmtFilterLongToIgnore = kRmtFilterLongToIgnore);
 #else  // ESP32
-  explicit IRrecv(const uint16_t recvpin, const uint16_t bufsize = kRawBuf,
+   explicit IRrecv(const uint16_t recvpin, const uint16_t bufsize = kRawBuf,
                   const uint8_t timeout = kTimeoutMs,
                   const bool save_buffer = false);                // Constructor
 #endif  // ESP32
@@ -137,9 +168,12 @@ class IRrecv {
               uint8_t max_skip = 0, uint16_t noise_floor = 0);
   void enableIRIn(const bool pullup = false);
   void disableIRIn(void);
+#if !defined(ESP32_RMT)
   void pause(void);
   void resume(void);
   uint16_t getBufSize(void);
+#endif // ESP32_RMT
+
 #if DECODE_HASH
   void setUnknownThreshold(const uint16_t length);
 #endif
@@ -165,7 +199,12 @@ class IRrecv {
   irparams_t *irparams_save;
   uint8_t _tolerance;
 #if defined(ESP32)
+#ifndef ESP32_RMT
   uint8_t _timer_num;
+#else
+  rmt_config_t _configRx;
+  RingbufHandle_t _rb;
+#endif // ESP32_RMT
 #endif  // defined(ESP32)
 #if DECODE_HASH
   uint16_t _unknown_threshold;
@@ -175,7 +214,9 @@ class IRrecv {
 #endif  // UNIT_TEST
   // These are called by decode
   uint8_t _validTolerance(const uint8_t percentage);
+#ifndef ESP32_RMT
   void copyIrParams(volatile irparams_t *src, irparams_t *dst);
+#endif // ESP32_RMT
   uint16_t compare(const uint16_t oldval, const uint16_t newval);
   uint32_t ticksLow(const uint32_t usecs,
                     const uint8_t tolerance = kUseDefTol,
@@ -279,7 +320,10 @@ class IRrecv {
                            const int16_t excess = kMarkExcess,
                            const bool MSBfirst = true,
                            const bool GEThomas = true);
+
+#if defined(ENABLE_NOISE_FILTER_OPTION) && !defined(ESP32_RMT)
   void crudeNoiseFilter(decode_results *results, const uint16_t floor = 0);
+#endif
   bool decodeHash(decode_results *results);
 #if DECODE_VOLTAS
   bool decodeVoltas(decode_results *results,

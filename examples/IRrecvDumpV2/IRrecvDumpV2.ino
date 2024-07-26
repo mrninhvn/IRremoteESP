@@ -123,7 +123,11 @@ const uint8_t kTolerancePercentage = kTolerance;  // kTolerance is normally 25%
 // ==================== end of TUNEABLE PARAMETERS ====================
 
 // Use turn on the save buffer feature for more complete capture coverage.
+#if !defined(ESP32_RMT)
 IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout, true);
+#else
+IRrecv irrecv(kRecvPin, kTimeout);
+#endif // ESP32_RMT
 decode_results results;  // Somewhere to store the results
 
 // This section of code runs only once at start-up.
