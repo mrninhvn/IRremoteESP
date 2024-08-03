@@ -46,6 +46,25 @@ IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
   #endif // ESP32_RMT  
 }
 
+#define RMT_DEFAULT_CONFIG_TX(gpio, channel_id)      \
+{                                                    \
+  .rmt_mode = RMT_MODE_TX,                     \
+  .channel = channel_id,                       \
+  .gpio_num = gpio,                            \
+  .clk_div = 80,                               \
+  .mem_block_num = 1,                          \
+  .flags = 0,                                  \
+  .tx_config = {                               \
+      .carrier_freq_hz = 38000,                \
+      .carrier_level = RMT_CARRIER_LEVEL_HIGH, \
+      .idle_level = RMT_IDLE_LEVEL_LOW,        \
+      .carrier_duty_percent = 33,              \
+      .carrier_en = false,                     \
+      .loop_en = false,                        \
+      .idle_output_en = true,                  \
+  }                                                \
+}
+
 /// Enable the pin for output.
 void IRsend::begin() {
 #ifndef ESP32_RMT      
@@ -62,16 +81,23 @@ void IRsend::begin() {
   _configTx.gpio_num = (gpio_num_t) IRpin;
   _configTx.mem_block_num = 1;
   _configTx.tx_config.loop_en = false;
-  _configTx.tx_config.carrier_duty_percent = 33; //50;
+  _configTx.tx_config.carrier_duty_percent = 50;
   _configTx.tx_config.carrier_freq_hz = 38*1000;
-  _configTx.tx_config.carrier_en = 1;
-  _configTx.tx_config.idle_output_en = 1;
+  _configTx.tx_config.carrier_en = false;
+  _configTx.tx_config.idle_output_en = true;
   _configTx.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
   _configTx.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
   _configTx.clk_div = 80; // 80MHx / 80 = 1MHz 0r 1uS per count
 
-  ESP_ERROR_CHECK(rmt_config(&_configTx));
-  ESP_ERROR_CHECK(rmt_driver_install(_configTx.channel, 1000, 0));
+  esp_err_t err = ESP_OK;
+  err = rmt_config(&_configTx);
+  if (err != ESP_OK){
+    DPRINTLN(esp_err_to_name(err));
+  }
+  err = rmt_driver_install(_configTx.channel, 1000, 0);
+  if (err != ESP_OK){
+    DPRINTLN(esp_err_to_name(err));
+  }
 
 #endif // ESP32_RMT  
 }
@@ -225,9 +251,19 @@ uint16_t IRsend::mark(uint16_t usec) {
   }
   return counter;
   #else  
-  this->_sendRawbuf[this->_rawBufCounter] = usec;
-  this->_rawBufCounter++;  
-  return 1;
+  // this->_sendRawbuf[this->_rawBufCounter] = usec;
+  // this->_rawBufCounter++;  
+
+  if (this->_sendRawbuf == NULL){
+    this->_sendRawbuf = (uint16_t *)malloc(sizeof(uint16_t));
+    this->_rawBufCounter = 1;
+  }
+  else{
+    this->_rawBufCounter++;
+    this->_sendRawbuf = (uint16_t *)realloc(this->_sendRawbuf, this->_rawBufCounter*sizeof(uint16_t));
+  }
+  this->_sendRawbuf[this->_rawBufCounter-1] = usec;
+  return _rawBufCounter;
   #endif
 }
 
@@ -242,8 +278,17 @@ void IRsend::space(uint32_t time) {
   _delayMicroseconds(time);
   #else 
   //ESP_LOGE("TEST", "Space: %d",time);
-  this->_sendRawbuf[this->_rawBufCounter] = time;
-  this->_rawBufCounter++;
+  // this->_sendRawbuf[this->_rawBufCounter] = time;
+  // this->_rawBufCounter++;
+  if (this->_sendRawbuf == NULL){
+    this->_sendRawbuf = (uint16_t *)malloc(sizeof(uint16_t));
+    this->_rawBufCounter = 1;
+  }
+  else{
+    this->_rawBufCounter++;
+    this->_sendRawbuf = (uint16_t *)realloc(this->_sendRawbuf, this->_rawBufCounter*sizeof(uint16_t));
+  }
+  this->_sendRawbuf[this->_rawBufCounter-1] = (uint16_t)time;
   #endif
 }
 
@@ -419,8 +464,8 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
 
 #if defined(ESP32_RMT)
     // TODO RMT: Calc this please    
-    this->_sendRawbuf = new uint16_t[200];
-    this->_rawBufCounter = 0;
+    // this->_sendRawbuf = new uint16_t[200];
+    // this->_rawBufCounter = 0;
 #else
     usecs.reset();
 #endif // ESP32_RMT
@@ -645,6 +690,9 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
     items[i].level1 = 0;
   }
   rmt_write_items(_configTx.channel, items, itemLen, 1);
+
+  if (this->_sendRawbuf != NULL) { free(this->_sendRawbuf); this->_sendRawbuf = NULL; }
+  this->_rawBufCounter = 0;
 
 
 #endif // ESP32_RMT
