@@ -62,7 +62,7 @@
 // Note: GPIO 16 won't work on the ESP8266 as it does not have interrupts.
 // Note: GPIO 14 won't work on the ESP32-C3 as it causes the board to reboot.
 #ifdef ARDUINO_ESP32C3_DEV
-const uint16_t kRecvPin = 10;  // 14 on a ESP32-C3 causes a boot loop.
+const uint16_t kRecvPin = 3; //10;  // 14 on a ESP32-C3 causes a boot loop.
 #else  // ARDUINO_ESP32C3_DEV
 const uint16_t kRecvPin = 14;
 #endif  // ARDUINO_ESP32C3_DEV
@@ -99,7 +99,11 @@ void setup() {
   irrecv.enableIRIn();  // Start up the IR receiver.
   irsend.begin();       // Start up the IR sender.
 
+#ifdef ARDUINO_ESP32C3_DEV
+  Serial.begin(kBaudRate);
+#else
   Serial.begin(kBaudRate, SERIAL_8N1);
+#endif
   while (!Serial)  // Wait for the serial connection to be establised.
     delay(50);
   Serial.println();
@@ -140,7 +144,9 @@ void loop() {
     }
     // Resume capturing IR messages. It was not restarted until after we sent
     // the message so we didn't capture our own message.
+    #ifndef ESP32_RMT
     irrecv.resume();
+    #endif
 
     // Display a crude timestamp & notification.
     uint32_t now = millis();

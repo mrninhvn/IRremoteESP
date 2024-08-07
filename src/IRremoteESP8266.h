@@ -54,7 +54,8 @@
 
 
 #ifdef ESP32_RMT
-#include <driver/rmt.h>
+#include "driver/rmt_tx.h"
+#include "driver/rmt_rx.h"
 #endif
 
 // Library Version Information

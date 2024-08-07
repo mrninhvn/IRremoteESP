@@ -40,9 +40,9 @@
 // Note: GPIO 16 won't work on the ESP8266 as it does not have interrupts.
 // Note: GPIO 14 won't work on the ESP32-C3 as it causes the board to reboot.
 #ifdef ARDUINO_ESP32C3_DEV
-const uint16_t kRecvPin = 10;  // 14 on a ESP32-C3 causes a boot loop.
+const uint16_t kRecvPin = 3;  // 14 on a ESP32-C3 causes a boot loop.
 #else  // ARDUINO_ESP32C3_DEV
-const uint16_t kRecvPin = 14;
+const uint16_t kRecvPin = 5; //14;
 #endif  // ARDUINO_ESP32C3_DEV
 
 // The Serial connection baud rate.
@@ -126,7 +126,7 @@ const uint8_t kTolerancePercentage = kTolerance;  // kTolerance is normally 25%
 #if !defined(ESP32_RMT)
 IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout, true);
 #else
-IRrecv irrecv(kRecvPin, kTimeout);
+IRrecv irrecv(kRecvPin, kCaptureBufferSize, kTimeout);
 #endif // ESP32_RMT
 decode_results results;  // Somewhere to store the results
 

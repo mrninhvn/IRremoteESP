@@ -74,31 +74,10 @@ void IRsend::begin() {
   ledOff();  // Ensure the LED is in a known safe state when we start.
 #else
   // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html
-  // https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h RMT_DEFAULT_CONFIG_TX
-  // put your setup code here, to run once:
-  _configTx.rmt_mode = RMT_MODE_TX;
-  _configTx.channel = sendRmtChannel;
-  _configTx.gpio_num = (gpio_num_t) IRpin;
-  _configTx.mem_block_num = 1;
-  _configTx.tx_config.loop_en = false;
-  _configTx.tx_config.carrier_duty_percent = 50;
-  _configTx.tx_config.carrier_freq_hz = 38*1000;
-  _configTx.tx_config.carrier_en = false;
-  _configTx.tx_config.idle_output_en = true;
-  _configTx.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
-  _configTx.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
-  _configTx.clk_div = 80; // 80MHx / 80 = 1MHz 0r 1uS per count
-
-  esp_err_t err = ESP_OK;
-  err = rmt_config(&_configTx);
-  if (err != ESP_OK){
-    DPRINTLN(esp_err_to_name(err));
+  // https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h
+  if (!rmtInit(IRpin, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_1, 1000000)) {
+    log_e("create RMT TX channel fail");
   }
-  err = rmt_driver_install(_configTx.channel, 1000, 0);
-  if (err != ESP_OK){
-    DPRINTLN(esp_err_to_name(err));
-  }
-
 #endif // ESP32_RMT  
 }
 
@@ -163,8 +142,11 @@ void IRsend::enableIROut(uint32_t freq, uint8_t duty) {
   // Nr. of uSeconds the LED will be off per pulse.
   offTimePeriod = period - onTimePeriod;
 #else 
-  _configTx.tx_config.carrier_freq_hz = freq*1000;  
-  ESP_ERROR_CHECK(rmt_config(&_configTx));  
+  DPRINT("enableIROut RMT: freq: "); DPRINT(freq);
+  DPRINT(", duty: "); DPRINTLN((float)duty/100);
+  if (!rmtSetCarrier(IRpin, true, false, freq, (float)duty/100)){
+    log_e("rmtSetCarrier fail");
+  }
 #endif // ESP32_RMT  
 }
 
@@ -453,22 +435,32 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
                          const uint16_t nbits, const uint16_t frequency,
                          const bool MSBfirst, const uint16_t repeat,
                          const uint8_t dutycycle) {
-#if !defined(ESP32_RMT)
   // Setup
   enableIROut(frequency, dutycycle);
+#if !defined(ESP32_RMT)
   IRtimer usecs = IRtimer();
 #endif  // ESP32_RMT
 
   // We always send a message, even for repeat=0, hence '<= repeat'.
   for (uint16_t r = 0; r <= repeat; r++) {
 
-#if defined(ESP32_RMT)
-    // TODO RMT: Calc this please    
-    // this->_sendRawbuf = new uint16_t[200];
-    // this->_rawBufCounter = 0;
+#ifdef ESP32_RMT
+    // Header
+    if (headermark) mark(headermark);
+    // else            mark(1);
+    if (headerspace) space(headerspace);
+    // else             space(1);
+
+    // Data
+    sendData(onemark, onespace, zeromark, zerospace, data, nbits, MSBfirst);
+
+    // Footer
+    if (footermark) mark(footermark);
+    else if (gap)   mark(1);
+
+    space(gap);
 #else
     usecs.reset();
-#endif // ESP32_RMT
 
     // Header
     if (headermark) mark(headermark);
@@ -480,21 +472,23 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
     // Footer
     if (footermark) mark(footermark);
 
-  #ifdef ESP32_RMT     
-    space(gap);
-  #else    
     uint32_t elapsed = usecs.elapsed();
     // Avoid potential unsigned integer underflow. e.g. when mesgtime is 0.
     if (elapsed >= mesgtime)
       space(gap);
     else
       space(std::max(gap, mesgtime - elapsed));
-#endif  // ESP32_RMT
+#endif // ESP32_RMT
+  }
 
 #if defined(ESP32_RMT)
+  DPRINTLN("sendGeneric ==================================>");
+  for (uint16_t i=0; i<this->_rawBufCounter; i++){
+    DPRINT(this->_sendRawbuf[i]); DPRINT(" ");
+  }
+  DPRINTLN("\n=============================================\n");
   this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
 #endif // ESP32_RMT  
-  }
 }
 
 /// Generic method for sending simple protocol messages.
@@ -663,9 +657,9 @@ void IRsend::sendManchester(const uint16_t headermark,
 ///   examples/IRrecvDumpV2/IRrecvDumpV2.ino (or later)
 void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
                      const uint16_t hz) {
+#ifndef ESP32_RMT
   // Set IR carrier frequency
   enableIROut(hz);
-#ifndef ESP32_RMT
   for (uint16_t i = 0; i < len; i++) {
     if (i & 1) {  // Odd bit.
       space(buf[i]);
@@ -676,20 +670,27 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
   ledOff();  // We potentially have ended with a mark(), so turn of the LED.
 #else 
   // build buffer for rmt  
-  if(len % 2 != 0) {    
-    return;
+  if(len % 2 != 0) {  
+    DPRINTLN("RMT length odd!");
+    // return;
   }
 
-  uint16_t itemLen = len / 2;
-  rmt_item32_t items[itemLen];
-  
+  DPRINTLN("sendRaw ==================================>");
+  uint16_t itemLen = this->_rawBufCounter / 2;
+  rmt_data_t items[itemLen];
   for(size_t i=0; i < itemLen; i++) {            
     items[i].duration0 = buf[i * 2];    
     items[i].level0 = 1;
     items[i].duration1 = buf[i * 2 + 1];    
     items[i].level1 = 0;
+    DPRINT(items[i].duration0); DPRINT(" ");
+    DPRINT(items[i].duration1); DPRINT(" ");
   }
-  rmt_write_items(_configTx.channel, items, itemLen, 1);
+  DPRINTLN("\n=============================================\n");
+
+  if (!rmtWrite(IRpin, items, RMT_SYMBOLS_OF(items), RMT_WAIT_FOR_EVER)) {
+    log_e("rmtWrite fail");
+  }
 
   if (this->_sendRawbuf != NULL) { free(this->_sendRawbuf); this->_sendRawbuf = NULL; }
   this->_rawBufCounter = 0;

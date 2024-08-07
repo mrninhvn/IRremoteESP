@@ -6,5 +6,11 @@
         "activityBar.background": "#5E0B0E",
         "titleBar.activeBackground": "#841014",
         "titleBar.activeForeground": "#FFFBFB"
+    },
+    "files.associations": {
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "span": "cpp"
     }
 }

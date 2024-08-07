@@ -45,8 +45,6 @@ const uint32_t kDefaultMessageGap = 100000;
 const float kNoTempValue = -100.0;
 
 #if defined(ESP32_RMT)
-const rmt_channel_t sendRmtChannel = RMT_CHANNEL_0; // RMT_CHANNEL_2; // rmt channel for sending ir signals
-const uint8_t sendRmtMemBlockNum = 1; // how many mem blocks to use for sending
 #endif
 
 
@@ -932,7 +930,6 @@ class IRsend {
 #ifdef ESP32_RMT 
   uint16_t *_sendRawbuf = NULL;
   uint16_t _rawBufCounter = 0;
-  rmt_config_t _configTx;
 #endif // ESP32_RMT    
   bool modulation;
   uint32_t calcUSecPeriod(uint32_t hz, bool use_offset = true);

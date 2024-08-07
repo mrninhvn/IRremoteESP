@@ -31,10 +31,12 @@
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <ir_Daikin.h>
 
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
+IRDaikin176 ac(kIrLed);  // Set the GPIO to be used to sending the message
 
 // Example of data captured by IRrecvDumpV2.ino
 uint16_t rawData[67] = {9000, 4500, 650, 550, 650, 1650, 600, 550, 650, 550,
@@ -60,12 +62,22 @@ void setup() {
 #endif
   delay(5000);
   irsend.begin();
+  ac.begin();
 }
 
 void loop() {
   Serial.println("SYMPHONY");
   irsend.sendSymphony(0xDC3);
-  delay(1000);
+  // delay(1000);
+  // Serial.println("DAIKIN176");
+  // ac.on();
+  // ac.setFan(1);
+  // ac.setMode(kDaikin176Cool);
+  // ac.setTemp(27);
+  // ac.setSwingHorizontal(kDaikin176SwingHAuto);
+  // Serial.println(ac.toString());
+  // ac.send();
+  delay(5000);
   // Serial.println("NEC");
   // irsend.sendNEC(0x00FFE01FUL);
   // delay(2000);

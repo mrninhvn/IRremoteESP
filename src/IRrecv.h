@@ -21,11 +21,11 @@ const uint16_t kFooter = 2;        // Usual nr. of footer (stop bits) entries.
 const uint16_t kStartOffset = 1;   // Usual rawbuf entry to start from.
 #else
 const uint16_t kStartOffset = 0;   // Usual rawbuf entry to start from.
-const rmt_channel_t kRecvRmtChannel = RMT_CHANNEL_3; // rmt channel for receiving ir signals
-const uint8_t kRecvRmtMemBlockNum = 1; // how many mem blocks to use for receiving
-const TickType_t kRecvRmtTicksToWait = 100; // how many ticks to wait for reading rmt to buffer
-const uint8_t kRmtFilterShortToIgnore = 100; // pulses that short are ignored
-const uint16_t kRmtFilterLongToIgnore = 12000; // pulses that are longer are ignored
+// const rmt_channel_t kRecvRmtChannel = RMT_CHANNEL_3; // rmt channel for receiving ir signals
+// const uint8_t kRecvRmtMemBlockNum = 1; // how many mem blocks to use for receiving
+// const TickType_t kRecvRmtTicksToWait = 100; // how many ticks to wait for reading rmt to buffer
+// const uint8_t kRmtFilterShortToIgnore = 100; // pulses that short are ignored
+// const uint16_t kRmtFilterLongToIgnore = 12000; // pulses that are longer are ignored
 #endif // ESP32_RMT
 #define MS_TO_USEC(x) ((x) * 1000U)  // Convert milli-Seconds to micro-Seconds.
 // Marks tend to be 100us too long, and spaces 100us too short
@@ -90,7 +90,6 @@ const uint16_t kStateSizeMax = sizeof(uint64_t);
 /// Information for the interrupt handler
 typedef struct {
   uint8_t recvpin;   // pin for IR data from detector
-#if !defined(ESP32_RMT)
   uint8_t rcvstate;  // state machine
   uint16_t timer;    // state timer, counts 50uS ticks.
   uint16_t bufsize;  // max. nr. of entries in the capture buffer.
@@ -99,13 +98,6 @@ typedef struct {
   // handler. Don't ask why, I don't know. It just does.
   uint16_t rawlen;   // counter of entries in rawbuf.
   uint8_t overflow;  // Buffer overflow indicator.
-#else
-  rmt_channel_t rmtChannel; // rmt channel for receiving ir signals
-  uint8_t rmtMemBlockNum; // how many mem blocks to use for receiving
-  TickType_t rmtTicksToWait; // how long to wait to read item from channel
-  uint8_t rmtFilterShortToIgnore; // Pulses shorter than this will be ignored
-  uint16_t rmtFilterLongToIgnore; // Pulses longer than this will be ignored
-#endif  // ESP32_RMT
   uint8_t timeout;   // Nr. of milliSeconds before we give up.
 } irparams_t;
 
@@ -149,13 +141,9 @@ class IRrecv {
                   const bool save_buffer = false,
                   const uint8_t timer_num = kDefaultESP32Timer);  // Constructor
 #elif defined(ESP32_RMT)
-  explicit IRrecv(const uint16_t recvpin,
+  explicit IRrecv(const uint16_t recvpin, const uint16_t bufsize = kRawBuf,
                   const uint8_t timeout = kTimeoutMs,
-                  const rmt_channel_t rmtChannel = kRecvRmtChannel,
-                  const uint8_t rmtMemBlockNum = kRecvRmtMemBlockNum,
-                  const TickType_t rmtTicksToWait = kRecvRmtTicksToWait,
-                  const uint8_t rmtFilterShortToIgnore = kRmtFilterShortToIgnore,
-                  const uint16_t rmtFilterLongToIgnore = kRmtFilterLongToIgnore);
+                  const bool save_buffer = false);  // Constructor
 #else  // ESP32
    explicit IRrecv(const uint16_t recvpin, const uint16_t bufsize = kRawBuf,
                   const uint8_t timeout = kTimeoutMs,
@@ -202,8 +190,6 @@ class IRrecv {
 #ifndef ESP32_RMT
   uint8_t _timer_num;
 #else
-  rmt_config_t _configRx;
-  RingbufHandle_t _rb;
 #endif // ESP32_RMT
 #endif  // defined(ESP32)
 #if DECODE_HASH
