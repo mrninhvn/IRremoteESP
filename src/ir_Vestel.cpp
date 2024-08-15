@@ -8,7 +8,9 @@
 #include "ir_Vestel.h"
 #include <algorithm>
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #include "IRrecv.h"
 #include "IRremoteESP8266.h"

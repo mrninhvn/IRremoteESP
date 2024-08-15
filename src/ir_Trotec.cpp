@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cstring>
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #include "IRremoteESP8266.h"
 #include "IRtext.h"

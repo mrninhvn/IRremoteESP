@@ -2,7 +2,9 @@
 
 #include "IRtimer.h"
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 
 #ifdef UNIT_TEST

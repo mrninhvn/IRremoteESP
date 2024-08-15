@@ -12,7 +12,12 @@ extern "C" {
 #include <user_interface.h>
 }
 #endif  // ESP8266
+#ifdef ARDUINO
 #include <Arduino.h>
+#elif defined(ESP_PLATFORM)
+#include "esp_system.h"
+#include "esp_log.h"
+#endif // ARDUINO
 #endif  // UNIT_TEST
 #include <algorithm>
 #ifdef UNIT_TEST
@@ -291,6 +296,20 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
 #else  // SOC_TIMER_GROUP_TOTAL_TIMERS
                                   3));
 #endif  // SOC_TIMER_GROUP_TOTAL_TIMERS
+#elif defined(ESP_PLATFORM)  // ESP32
+/// @cond IGNORE
+/// Class constructor
+/// Args:
+/// @param[in] recvpin The GPIO pin the IR receiver module's data pin is
+///   connected to.
+/// @param[in] bufsize Nr. of entries to have in the capture buffer.
+///   (Default: kRawBuf)
+/// @param[in] timeout Nr. of milli-Seconds of no signal before we stop
+///   capturing data. (Default: kTimeoutMs)
+/// @param[in] save_buffer Use a second (save) buffer to decode from.
+///   (Default: false)
+IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
+               const uint8_t timeout, const bool save_buffer) : _recvpin(recvpin) {
 #else  // ESP32
 /// @cond IGNORE
 /// Class constructor
@@ -318,7 +337,11 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
         "Could not allocate memory for the primary IR buffer.\n"
         "Try a smaller size for CAPTURE_BUFFER_SIZE.\nRebooting!");
 #ifndef UNIT_TEST
+#ifdef ARDUINO
     ESP.restart();  // Mem alloc failure. Reboot.
+#elif defined(ESP_PLATFORM)
+    esp_restart();
+#endif
 #endif
   }
   // If we have been asked to use a save buffer (for decoding), then create one.
@@ -331,7 +354,11 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
           "Could not allocate memory for the second IR buffer.\n"
           "Try a smaller size for CAPTURE_BUFFER_SIZE.\nRebooting!");
 #ifndef UNIT_TEST
+#ifdef ARDUINO
       ESP.restart();  // Mem alloc failure. Reboot.
+#elif defined(ESP_PLATFORM)
+      esp_restart();
+#endif
 #endif
     }
   } else {
@@ -367,9 +394,11 @@ void IRrecv::enableIRIn(const bool pullup) {
   // This wasn't required on the ESP8266s, but it shouldn't hurt to make sure.
   if (pullup) {
 #ifndef UNIT_TEST
+#ifdef ARDUINO
     pinMode(params.recvpin, INPUT_PULLUP);
   } else {
     pinMode(params.recvpin, INPUT);
+#endif // ARDUINO
 #endif  // UNIT_TEST
   }
 #if defined(ESP32)
@@ -396,6 +425,12 @@ void IRrecv::enableIRIn(const bool pullup) {
   }
 #endif // ESP32_RMT
 #endif  // ESP32
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+  if (!_irrmt.begin()){
+    ESP_LOGE(RMT_TAG, "IDF RMT Init Fail!");
+  }
+#endif
 
 #if !defined(ESP32_RMT)
   // Initialise state machine variables
@@ -652,6 +687,7 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
   }
   rmt_data_t items[length];
 
+#ifdef ARDUINO
   // If data is read, data_symbols will have the number of RMT symbols effectively read
   // to check if something was read and it didn't just timeout, use rmtReceiveCompleted()
   // if (!rmtRead(params.recvpin, items, &length, params.timeout)){
@@ -692,57 +728,44 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     // DPRINTLN("No RMT data read...");
     results->overflow = true;
   }
-
-  /* Using rmtReadAsync
-     ToDo: remove error message
-  if (!rmtReadAsync(params.recvpin, items, &length)){
+  #elif defined(ESP_PLATFORM)
+  if (!_irrmt.read(items, &length, true, RMT_WAIT_FOR_EVER)){
     return false;
   }
-  bool has_rmt_data = false;
-  uint32_t start = millis();
-  while (millis() - start < params.timeout){
-    // If read something, process the data
-    if (rmtReceiveCompleted(params.recvpin)) {
-      DPRINT("rmtRead length: ");
-      DPRINTLN(length);
-      for (uint8_t i=0; i<length; i++){
-        DPRINT(items[i].duration0);
-        DPRINT(", ");
-        DPRINT(items[i].duration1);
-        DPRINT(", ");
-      }
-      DPRINTLN("");
-      results->decode_type = UNKNOWN;
-      results->bits = 0;
-      results->value = 0;
-      results->address = 0;
-      results->command = 0;
-      results->repeat = false;
-      results->rawbuf = new uint16_t[length * 2];
-      results->rawlen = length * 2;
-      results->overflow = false;
-      for(size_t i=0; i < length; i++) {
-        results->rawbuf[i * 2] = items[i].duration0;
-        DPRINT(results->rawbuf[i * 2]);
-        DPRINT(", ");
-        results->rawbuf[i * 2 + 1] = items[i].duration1;
-        DPRINT(results->rawbuf[i * 2 + 1]);
-        DPRINT(", ");
-      }
-      DPRINTLN("");
-      has_rmt_data = true;
-      break;
+  if (_irrmt.readCompleted()) {
+    DPRINT("rmtRead length: ");
+    DPRINTLN(length);
+    for (uint8_t i=0; i<length; i++){
+      DPRINT(items[i].duration0);
+      DPRINT(", ");
+      DPRINT(items[i].duration1);
+      DPRINT(", ");
     }
-    else {
-      // DPRINTLN("No RMT data read...");
-      // results->overflow = true;
+    DPRINTLN("");
+    results->decode_type = UNKNOWN;
+    results->bits = 0;
+    results->value = 0;
+    results->address = 0;
+    results->command = 0;
+    results->repeat = false;
+    results->rawbuf = new uint16_t[length * 2];
+    results->rawlen = length * 2;
+    results->overflow = false;
+    for(size_t i=0; i < length; i++) {
+      results->rawbuf[i * 2] = items[i].duration0;
+      DPRINT(results->rawbuf[i * 2]);
+      DPRINT(", ");
+      results->rawbuf[i * 2 + 1] = items[i].duration1;
+      DPRINT(results->rawbuf[i * 2 + 1]);
+      DPRINT(", ");
     }
+    DPRINTLN("");
   }
-  if (!has_rmt_data){
-    return false;
+  else {
+    // DPRINTLN("No RMT data read...");
+    results->overflow = true;
   }
-  */
-
+  #endif
 
 #endif // ESP32_RMT
   // Keep looking for protocols until we've run out of entries to skip or we
@@ -1349,6 +1372,71 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
 #endif // ESP32_RMT
   return false;
 }  // NOLINT(readability/fn_size)
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+typedef struct decode_loop_params {
+  IRrecv *irrecv;
+  decode_results *results;
+  void (*func_ptr)(void);
+  irparams_t *save;
+  uint8_t max_skip;
+  uint16_t noise_floor;
+} decode_loop_params_t;
+
+static TaskHandle_t decodeLoopHandler = NULL;
+
+static void decode_loop_task(void *arg){
+  // decode_loop_params_t *decodeParams = (decode_loop_params_t *) arg;
+  decode_loop_params_t decodeParams;
+  memcpy((void *)&decodeParams, arg, sizeof(decode_loop_params_t));
+  if (arg != NULL) free(arg);
+
+  for (;;) {
+    if (decodeParams.irrecv->decode(decodeParams.results,
+                                    decodeParams.save,
+                                    decodeParams.max_skip,
+                                    decodeParams.noise_floor)) {  // We have captured something.
+        // Call the callback function.
+        decodeParams.func_ptr();
+    }
+  }
+  vTaskDelete(NULL);
+}
+
+bool IRrecv::enableDecodeLoop(decode_results *results, void (*func_ptr)(void),
+                              irparams_t *save, uint8_t max_skip, uint16_t noise_floor) {
+  decode_loop_params_t *decodeParams = (decode_loop_params_t *)malloc(sizeof(decode_loop_params_t));
+  decodeParams->irrecv = this;
+  decodeParams->results = results;
+  decodeParams->func_ptr = *func_ptr;
+  decodeParams->save = save;
+  decodeParams->max_skip = max_skip;
+  decodeParams->noise_floor = noise_floor;
+
+  if (decodeLoopHandler != NULL) {
+    vTaskDelete(decodeLoopHandler);
+    decodeLoopHandler = NULL;
+  }
+  #ifdef DEBUG
+  uint32_t decodeStackDepth = 1024*6;
+  #else
+  uint32_t decodeStackDepth = 1024*5;
+  #endif
+  if (xTaskCreate(decode_loop_task, "decode_loop_task", decodeStackDepth, decodeParams, tskIDLE_PRIORITY, &decodeLoopHandler) == pdPASS) {
+    return true;
+  }
+  return false;
+}
+
+bool IRrecv::disableDecodeLoop(void){
+  if (decodeLoopHandler == NULL) {
+    return false;
+  }
+  vTaskDelete(decodeLoopHandler);
+  decodeLoopHandler = NULL;
+  return true;
+}
+#endif
 
 /// Convert the tolerance percentage into something valid.
 /// @param[in] percentage An integer percentage.

@@ -47,16 +47,10 @@
 
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
-#ifdef UNIT_TEST
+#if defined(UNIT_TEST) || ( defined(ESP_PLATFORM) && !defined(ARDUINO) )
 #include <iostream>
 #include <string>
 #endif  // UNIT_TEST
-
-
-#ifdef ESP32_RMT
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
-#endif
 
 // Library Version Information
 // Major version number (X.x.x)
@@ -1520,6 +1514,9 @@ const uint16_t kYorkStateLength = 17;
 #ifdef ARDUINO
 #define DPRINT(x) do { Serial.print(x); } while (0)
 #define DPRINTLN(x) do { Serial.println(x); } while (0)
+#elif defined(ESP_PLATFORM)
+#define DPRINT(x) do { std::cout << x; } while (0)
+#define DPRINTLN(x) do { std::cout << x << std::endl; } while (0)
 #endif  // ARDUINO
 #else  // DEBUG
 #define DPRINT(x)
@@ -1536,5 +1533,19 @@ const uint16_t kYorkStateLength = 17;
 #endif  // F
 typedef std::string String;
 #endif  // UNIT_TEST
+
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+#define RMT_TAG "RMT"
+#ifndef F
+#define F(x) x
+#endif  // F
+#define String std::string
+#define substring std::string::substr
+typedef enum {
+  RMT_RX_MODE = 0,  // false
+  RMT_TX_MODE = 1,  // true
+} rmt_ch_dir_t;
+#endif // ESP_PLATFORM
 
 #endif  // IRREMOTEESP8266_H_

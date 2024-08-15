@@ -21,7 +21,9 @@
 #define IR_MITSUBISHIHEAVY_H_
 
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #include "IRremoteESP8266.h"
 #include "IRsend.h"

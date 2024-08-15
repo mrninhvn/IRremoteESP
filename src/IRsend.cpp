@@ -4,7 +4,11 @@
 
 #include "IRsend.h"
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#elif defined(ESP_PLATFORM)
+#include "esp_log.h"
+#endif // ARDUINO
 #else
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
@@ -19,6 +23,7 @@
 #endif //ESP32_RMT
 
 /// Constructor for an IRsend object.
+#ifdef ARDUINO
 /// @param[in] IRsendPin Which GPIO pin to use when sending an IR command.
 /// @param[in] inverted Optional flag to invert the output. (default = false)
 ///  e.g. LED is illuminated when GPIO is LOW rather than HIGH.
@@ -30,6 +35,10 @@
 ///  duty cycle etc.
 IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
     : IRpin(IRsendPin), periodOffset(kPeriodOffset) {
+#elif defined(ESP_PLATFORM)
+IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
+    : IRpin(IRsendPin), periodOffset(kPeriodOffset), _inverted(inverted) {
+#endif // ARDUINO
   #ifndef ESP32_RMT    
   if (inverted) {
     outputOn = LOW;
@@ -75,9 +84,15 @@ void IRsend::begin() {
 #else
   // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html
   // https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h
+  #ifdef ARDUINO
   if (!rmtInit(IRpin, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_1, 1000000)) {
     log_e("create RMT TX channel fail");
   }
+  #elif defined(ESP_PLATFORM)
+  if (!_irrmt.begin()){
+    ESP_LOGE(RMT_TAG, "IDF RMT Init Fail!");
+  }
+  #endif
 #endif // ESP32_RMT  
 }
 
@@ -144,9 +159,15 @@ void IRsend::enableIROut(uint32_t freq, uint8_t duty) {
 #else 
   DPRINT("enableIROut RMT: freq: "); DPRINT(freq);
   DPRINT(", duty: "); DPRINTLN((float)duty/100);
+  #ifdef ARDUINO
   if (!rmtSetCarrier(IRpin, true, false, freq, (float)duty/100)){
     log_e("rmtSetCarrier fail");
   }
+  #elif defined(ESP_PLATFORM)
+  if (!_irrmt.enableOut(freq, duty)){
+    ESP_LOGE(RMT_TAG, "enableOut fail!");
+  }
+  #endif
 #endif // ESP32_RMT  
 }
 
@@ -676,7 +697,7 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
   }
 
   DPRINTLN("sendRaw ==================================>");
-  uint16_t itemLen = this->_rawBufCounter / 2;
+  uint16_t itemLen = len / 2;
   rmt_data_t items[itemLen];
   for(size_t i=0; i < itemLen; i++) {            
     items[i].duration0 = buf[i * 2];    
@@ -688,9 +709,15 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
   }
   DPRINTLN("\n=============================================\n");
 
+  #ifdef ARDUINO
   if (!rmtWrite(IRpin, items, RMT_SYMBOLS_OF(items), RMT_WAIT_FOR_EVER)) {
     log_e("rmtWrite fail");
   }
+  #elif defined(ESP_PLATFORM)
+  if (!_irrmt.write(items, RMT_SYMBOLS_OF(items), true, RMT_WAIT_FOR_EVER)) {
+    ESP_LOGE(RMT_TAG, "rmtWrite fail");
+  }
+  #endif
 
   if (this->_sendRawbuf != NULL) { free(this->_sendRawbuf); this->_sendRawbuf = NULL; }
   this->_rawBufCounter = 0;

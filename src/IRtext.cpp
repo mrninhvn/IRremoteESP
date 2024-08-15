@@ -6,7 +6,9 @@
 
 #include "IRtext.h"
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif  // UNIT_TEST
 #include "IRremoteESP8266.h"
 #include "i18n.h"

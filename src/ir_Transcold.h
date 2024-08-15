@@ -61,7 +61,9 @@ temp 	16	Auto	cool	close (right)	11101111000100000110011110011000010101001010101
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #include "IRremoteESP8266.h"
 #include "IRsend.h"

@@ -18,6 +18,10 @@
 #define VIRTUAL
 #endif
 
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+#include "IRrmt.h"
+#endif
+
 // Constants
 // Offset (in microseconds) to use in Period time calculations to account for
 // code excution time in producing the software PWM signal.
@@ -933,8 +937,12 @@ class IRsend {
   uint8_t _dutycycle;
 
 #ifdef ESP32_RMT 
-  uint16_t *_sendRawbuf = NULL;
+  uint16_t *_sendRawbuf = nullptr; // NULL;
   uint16_t _rawBufCounter = 0;
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+  bool _inverted;
+  IRrmt _irrmt = IRrmt(IRpin, RMT_TX_MODE, _inverted);
+#endif // ESP_PLATFORM
 #endif // ESP32_RMT    
   bool modulation;
   uint32_t calcUSecPeriod(uint32_t hz, bool use_offset = true);

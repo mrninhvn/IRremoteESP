@@ -13,7 +13,9 @@
 #include <cmath>
 #include <cstring>
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif  // UNIT_TEST
 #include "IRremoteESP8266.h"
 #include "IRtext.h"

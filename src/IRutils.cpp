@@ -2,7 +2,9 @@
 
 #include "IRutils.h"
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 
 #define __STDC_LIMIT_MACROS

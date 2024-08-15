@@ -7,7 +7,11 @@
 #define IRRECV_H_
 
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#elif defined(ESP_PLATFORM)
+#include "IRrmt.h"
+#endif // ARDUINO
 #endif
 #include <stddef.h>
 #define __STDC_LIMIT_MACROS
@@ -154,6 +158,11 @@ class IRrecv {
   uint8_t getTolerance(void);
   bool decode(decode_results *results, irparams_t *save = NULL,
               uint8_t max_skip = 0, uint16_t noise_floor = 0);
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+  bool enableDecodeLoop(decode_results *results, void (*func_ptr)(void),
+                        irparams_t *save = NULL, uint8_t max_skip = 0, uint16_t noise_floor = 0);
+  bool disableDecodeLoop(void);
+#endif // ESP_PLATFORM
   void enableIRIn(const bool pullup = false);
   void disableIRIn(void);
 #if !defined(ESP32_RMT)
@@ -192,6 +201,12 @@ class IRrecv {
 #else
 #endif // ESP32_RMT
 #endif  // defined(ESP32)
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+  uint16_t _recvpin;
+  IRrmt _irrmt = IRrmt(_recvpin, RMT_RX_MODE, false);
+#endif // ESP_PLATFORM
+
 #if DECODE_HASH
   uint16_t _unknown_threshold;
 #endif

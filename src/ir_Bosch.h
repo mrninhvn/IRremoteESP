@@ -21,7 +21,9 @@
 #include "IRtext.h"
 #include "IRutils.h"
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #ifdef UNIT_TEST
 #include "IRsend_test.h"

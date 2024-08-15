@@ -4,7 +4,9 @@
 // Copyright 2017 David Conran
 
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #endif
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>

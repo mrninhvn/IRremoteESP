@@ -4,7 +4,9 @@
 // Copyright 2019 David Conran
 
 #ifndef UNIT_TEST
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif // ARDUINO
 #else
 #include <memory>
 #endif
