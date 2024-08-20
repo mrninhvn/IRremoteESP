@@ -4,7 +4,15 @@
 #ifndef UNIT_TEST
 #ifdef ARDUINO
 #include <Arduino.h>
+#elif defined(ESP_PLATFORM)
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #endif // ARDUINO
+#endif
+
+#if defined(ESP_PLATFORM) && !defined(ARDUINO)
+#define micros() (xTaskGetTickCount() / portTICK_PERIOD_MS * 1000)
+#define millis() (xTaskGetTickCount() / portTICK_PERIOD_MS)
 #endif
 
 #ifdef UNIT_TEST

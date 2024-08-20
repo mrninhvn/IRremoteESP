@@ -1,4 +1,4 @@
-/* IRremoteESP8266: IRsendDemo - demonstrates sending IR codes with IRsend.
+/* IRremoteESP8266: RMTsendDemo - demonstrates sending IR codes with IRsend using RMT.
  *
  * Version 1.1 January, 2019
  * Based on Ken Shirriff's IrsendDemo Version 0.1 July, 2009,
@@ -31,12 +31,10 @@
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
-#include <ir_Daikin.h>
 
 const uint16_t kIrLed = 4;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(kIrLed);  // Set the GPIO to be used to sending the message.
-IRDaikin176 ac(kIrLed);  // Set the GPIO to be used to sending the message
 
 // Example of data captured by IRrecvDumpV2.ino
 uint16_t rawData[67] = {9000, 4500, 650, 550, 650, 1650, 600, 550, 650, 550,
@@ -53,50 +51,36 @@ uint8_t samsungState[kSamsungAcStateLength] = {
 
 uint16_t rawSamsung[135] = {4510, 4432,  576, 1650,  578, 1652,  576, 1650,  578, 536,  578, 536,  578, 534,  578, 536,  576, 536,  576, 1652,  576, 1650,  578, 1650,  576, 536,  578, 536,  578, 536,  576, 538,  576, 536,  576, 536,  578, 536,  576, 1652,  576, 536,  578, 536,  576, 536,  576, 538,  576, 536,  578, 1650,  578, 1650,  578, 536,  576, 1652,  576, 1652,  576, 1652,  576, 1650,  578, 1650,  576, 46788,  4512, 4430,  578, 1628,  598, 1652,  576, 1650,  578, 536,  576, 536,  578, 536,  578, 536,  578, 536,  578, 1650,  576, 1652,  576, 1652,  578, 536,  576, 538,  578, 536,  576, 536,  578, 536,  578, 536,  578, 514,  600, 1650,  576, 536,  578, 536,  576, 536,  578, 536,  578, 536,  576, 1650,  576, 1652,  576, 538,  576, 1650,  576, 1650,  578, 1650,  578, 1650,  578, 1650,  576};  // SAMSUNG E0E020DF
 void setup() {
+  irsend.begin();
 #if ESP8266
   Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
 #elif ARDUINO_ESP32C3_DEV
   Serial.begin(115200);
-#else
+#else  // ESP8266
   Serial.begin(115200, SERIAL_8N1);
-#endif
-  delay(5000);
-  irsend.begin();
-  ac.begin();
+#endif  // ESP8266
 }
 
 void loop() {
-  Serial.println("SYMPHONY");
-  irsend.sendSymphony(0xDC3);
-  // delay(1000);
-  // Serial.println("DAIKIN176");
-  // ac.on();
-  // ac.setFan(1);
-  // ac.setMode(kDaikin176Cool);
-  // ac.setTemp(27);
-  // ac.setSwingHorizontal(kDaikin176SwingHAuto);
-  // Serial.println(ac.toString());
-  // ac.send();
-  delay(5000);
-  // Serial.println("NEC");
-  // irsend.sendNEC(0x00FFE01FUL);
-  // delay(2000);
-  // Serial.println("Sony");
-  // irsend.sendSony(0xa90, 12, 2);  // 12 bits & 2 repeats
-  // delay(2000);
-  // Serial.println("a rawData capture from IRrecvDumpV2");
-  // irsend.sendRaw(rawData, 67, 38);  // Send a raw data capture at 38kHz.
-  // delay(2000);
-  // Serial.println("a Samsung A/C state from IRrecvDumpV2");
-  // irsend.sendSamsungAC(samsungState);
-  // delay(2000);
-  // Serial.println("a Samsung");
+  /*Serial.println("NEC");
+  irsend.sendNEC(0x00FFE01FUL);
+  delay(2000);
+  Serial.println("Sony");
+  irsend.sendSony(0xa90, 12, 2);  // 12 bits & 2 repeats
+  delay(2000);
+  Serial.println("a rawData capture from IRrecvDumpV2");
+  irsend.sendRaw(rawData, 67, 38);  // Send a raw data capture at 38kHz.
+  delay(2000);
+  Serial.println("a Samsung A/C state from IRrecvDumpV2");
+  irsend.sendSamsungAC(samsungState);
+  delay(2000);*/
+  Serial.println("a Samsung");
   //irsend.sendRaw(rawSamsung,135,38);
   //irsend.sendSAMSUNG(0xE0E020DF);
-  // irsend.sendSAMSUNG(0xE0E0E01F);
+  irsend.sendSAMSUNG(0xE0E0E01F);
 
 
 
   
-  // delay(5000);
+  delay(5000);
 }

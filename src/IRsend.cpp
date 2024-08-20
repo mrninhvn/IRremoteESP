@@ -55,25 +55,6 @@ IRsend::IRsend(uint16_t IRsendPin, bool inverted, bool use_modulation)
   #endif // ESP32_RMT  
 }
 
-#define RMT_DEFAULT_CONFIG_TX(gpio, channel_id)      \
-{                                                    \
-  .rmt_mode = RMT_MODE_TX,                     \
-  .channel = channel_id,                       \
-  .gpio_num = gpio,                            \
-  .clk_div = 80,                               \
-  .mem_block_num = 1,                          \
-  .flags = 0,                                  \
-  .tx_config = {                               \
-      .carrier_freq_hz = 38000,                \
-      .carrier_level = RMT_CARRIER_LEVEL_HIGH, \
-      .idle_level = RMT_IDLE_LEVEL_LOW,        \
-      .carrier_duty_percent = 33,              \
-      .carrier_en = false,                     \
-      .loop_en = false,                        \
-      .idle_output_en = true,                  \
-  }                                                \
-}
-
 /// Enable the pin for output.
 void IRsend::begin() {
 #ifndef ESP32_RMT      
