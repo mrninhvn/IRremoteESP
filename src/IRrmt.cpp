@@ -232,7 +232,7 @@ bool IRrmt::write(rmt_data_t *data, size_t num_rmt_symbols, bool blocking, uint3
     return false;
   }
 
-  rmt_transmit_config_t transmit_cfg = { 0, 0, 0 };  // loop mode disabled
+  rmt_transmit_config_t transmit_cfg = {0};  // loop mode disabled
   bool retCode = true;
 
   // wants to start in writing or looping over a previous looping --> resets the channel

@@ -24,6 +24,8 @@
 #include "esp_idf_version.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #include "IRremoteESP8266.h"
 
