@@ -29,7 +29,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// #define delay(x) vTaskDelay(x / portTICK_PERIOD_MS)
+typedef struct ATTR_PACKED {
+  peripheral_bus_type_t type;
+  void *bus;
+} rmt_peripheral_pin_item_t;
+
+static rmt_peripheral_pin_item_t peripheral_pins[SOC_GPIO_PIN_COUNT];
 
 // RMT Events
 #define RMT_FLAG_RX_DONE (1)
@@ -65,6 +70,22 @@ static bool _rmt_rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_don
 }
 
 bool IRrmt::begin() {
+  // check is pin is valid and in the right direction
+  if ((this->_rmt_direction == RMT_TX_MODE && !GPIO_IS_VALID_OUTPUT_GPIO(this->_rmt_pin)) || (!GPIO_IS_VALID_GPIO(this->_rmt_pin))) {
+    ESP_LOGE(RMT_TAG, "GPIO %d is not valid or can't be used for output in TX mode.", this->_rmt_pin);
+    return false;
+  }
+
+  // check if the RMT peripheral is already initialized with the same parameters
+  peripheral_bus_type_t rmt_bus_type = peripheral_pins[this->_rmt_pin].type;
+  if (rmt_bus_type == ESP32_BUS_TYPE_RMT_TX || rmt_bus_type == ESP32_BUS_TYPE_RMT_RX) {
+    rmt_ch_dir_t bus_rmt_dir = rmt_bus_type == ESP32_BUS_TYPE_RMT_TX ? RMT_TX_MODE : RMT_RX_MODE;
+    this->_rmt_bus = (rmt_bus_handle_t) peripheral_pins[this->_rmt_pin].bus;
+    if (bus_rmt_dir == this->_rmt_direction) {
+      return true;  // already initialized with the same parameters
+    }
+  }
+
   // allocate the rmt bus object and sets all fields to NULL
   if (this->_rmt_bus == nullptr){
     this->_rmt_bus = (rmt_bus_handle_t)heap_caps_calloc(1, sizeof(struct rmt_obj_s), MALLOC_CAP_DEFAULT);
@@ -75,12 +96,6 @@ bool IRrmt::begin() {
   }
   else{
     ESP_LOGE(RMT_TAG, "RMT Bus already created");
-    return false;
-  }
-
-  // check is pin is valid and in the right direction
-  if ((this->_rmt_direction == RMT_TX_MODE && !GPIO_IS_VALID_OUTPUT_GPIO(this->_rmt_pin)) || (!GPIO_IS_VALID_GPIO(this->_rmt_pin))) {
-    ESP_LOGE(RMT_TAG, "GPIO %d is not valid or can't be used for output in TX mode.", this->_rmt_pin);
     return false;
   }
 
@@ -175,6 +190,9 @@ bool IRrmt::begin() {
   if (ret == false){
     this->end();
   }
+  peripheral_pins[this->_rmt_pin].type = this->_rmt_direction == RMT_TX_MODE ? ESP32_BUS_TYPE_RMT_TX : ESP32_BUS_TYPE_RMT_RX;
+  peripheral_pins[this->_rmt_pin].bus = this->_rmt_bus;
+
   return ret;
 }
 
@@ -352,6 +370,9 @@ bool IRrmt::end() {
     }
   }
   free(this->_rmt_bus);
+  peripheral_pins[this->_rmt_pin].type = ESP32_BUS_TYPE_INIT;
+  peripheral_pins[this->_rmt_pin].bus = NULL;
+
   return ret;
 }
 
