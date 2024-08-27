@@ -138,6 +138,8 @@ void IRsend::enableIROut(uint32_t freq, uint8_t duty) {
   // Nr. of uSeconds the LED will be off per pulse.
   offTimePeriod = period - onTimePeriod;
 #else 
+  if (freq < 1000)  // Were we given kHz? Supports the old call usage.
+    freq *= 1000;
   DPRINT("enableIROut RMT: freq: "); DPRINT(freq);
   DPRINT(", duty: "); DPRINTLN((float)duty/100);
   #ifdef ARDUINO
@@ -449,7 +451,7 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
 #ifdef ESP32_RMT
     // Header
     if (headermark) mark(headermark);
-    // else            mark(1);
+    else if (headerspace) mark(1);
     if (headerspace) space(headerspace);
     // else             space(1);
 
@@ -460,7 +462,7 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
     if (footermark) mark(footermark);
     else if (gap)   mark(1);
 
-    space(gap);
+    if (gap) space(gap);
 #else
     usecs.reset();
 
@@ -484,12 +486,14 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
   }
 
 #if defined(ESP32_RMT)
+#if DEBUG
   DPRINTLN("sendGeneric ==================================>");
   for (uint16_t i=0; i<this->_rawBufCounter; i++){
     DPRINT(this->_sendRawbuf[i]); DPRINT(" ");
   }
   DPRINTLN("\n=============================================\n");
   this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
+#endif // DEBUG
 #endif // ESP32_RMT  
 }
 
@@ -530,6 +534,22 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
   enableIROut(frequency, dutycycle);
   // We always send a message, even for repeat=0, hence '<= repeat'.
   for (uint16_t r = 0; r <= repeat; r++) {
+#ifdef ESP32_RMT
+    // Header
+    if (headermark) mark(headermark);
+    else if (headerspace) mark(1);
+    if (headerspace) space(headerspace);
+
+    // Data
+    for (uint16_t i = 0; i < nbytes; i++)
+      sendData(onemark, onespace, zeromark, zerospace, *(dataptr + i), 8,
+               MSBfirst);
+
+    // Footer
+    if (footermark) mark(footermark);
+    else if (gap)   mark(1);
+    if (gap) space(gap);
+#else
     // Header
     if (headermark) mark(headermark);
     if (headerspace) space(headerspace);
@@ -542,9 +562,17 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
     // Footer
     if (footermark) mark(footermark);
     space(gap);
+#endif // ESP32_RMT
   }
 
 #if defined(ESP32_RMT)
+#if DEBUG
+  DPRINTLN("sendGeneric dataptr ==================================>");
+  for (uint16_t i=0; i<this->_rawBufCounter; i++){
+    DPRINT(this->_sendRawbuf[i]); DPRINT(" ");
+  }
+  DPRINTLN("\n====================================================\n");
+#endif
   this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
 #endif // ESP32_RMT  
 }
@@ -673,10 +701,15 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
 #else 
   // build buffer for rmt  
   if(len % 2 != 0) {  
+    #ifdef ARDUINO
     DPRINTLN("RMT length odd!");
+    #elif defined(ESP_PLATFORM)
+    ESP_LOGW(RMT_TAG, "RMT length odd!");
+    #endif
     // return;
   }
 
+#if DEBUG
   DPRINTLN("sendRaw ==================================>");
   uint16_t itemLen = len / 2;
   rmt_data_t items[itemLen];
@@ -689,12 +722,14 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
     DPRINT(items[i].duration1); DPRINT(" ");
   }
   DPRINTLN("\n=============================================\n");
+#endif
 
   #ifdef ARDUINO
   if (!rmtWrite(IRpin, items, RMT_SYMBOLS_OF(items), RMT_WAIT_FOR_EVER)) {
     log_e("rmtWrite fail");
   }
   #elif defined(ESP_PLATFORM)
+  // printf("Raw send =====>\n");
   if (!_irrmt.write(items, RMT_SYMBOLS_OF(items), true, RMT_WAIT_FOR_EVER)) {
     ESP_LOGE(RMT_TAG, "rmtWrite fail");
   }
@@ -707,6 +742,13 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
 #endif // ESP32_RMT
 }
 #endif  // SEND_RAW
+
+#ifdef ESP32_RMT
+void IRsend::clearSendRawbuf(void) {
+  if (this->_sendRawbuf != NULL) { free(this->_sendRawbuf); this->_sendRawbuf = NULL; }
+  this->_rawBufCounter = 0;
+}
+#endif
 
 /// Get the minimum number of repeats for a given protocol.
 /// @param[in] protocol Protocol number/type of the message you want to send.

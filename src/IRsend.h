@@ -305,6 +305,9 @@ class IRsend {
             const uint16_t nbits, const uint16_t repeat = kNoRepeat);
   bool send(const decode_type_t type, const uint8_t *state,
             const uint16_t nbytes);
+  #ifdef ESP32_RMT
+  void clearSendRawbuf(void);
+  #endif
 #if (SEND_NEC || SEND_SHERWOOD || SEND_AIWA_RC_T501 || SEND_SANYO || \
      SEND_MIDEA24)
   void sendNEC(uint64_t data, uint16_t nbits = kNECBits,
