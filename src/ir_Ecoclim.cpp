@@ -51,6 +51,9 @@ void IRsend::sendEcoclim(const uint64_t data, const uint16_t nbits,
     }
     mark(kEcoclimFooterMark);
     space(kEcoclimGap);
+#if defined(ESP32_RMT)
+    sendRaw(this->_sendRawbuf, this->_rawBufCounter, kDaikin64Freq);
+#endif // ESP32_RMT 
   }
 }
 #endif  // SEND_ECOCLIM

@@ -82,8 +82,15 @@ void IRsend::sendMidea(uint64_t data, uint16_t nbits, uint16_t repeat) {
       // to the original 'data' state.
       data = ~data;
     }
+#if defined(ESP32_RMT)
+    mark(1);
+#endif // ESP32_RMT 
+
     space(kDefaultMessageGap);
   }
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38);
+#endif // ESP32_RMT 
 }
 #endif  // SEND_MIDEA
 

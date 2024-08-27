@@ -30,6 +30,9 @@ void IRsend::sendBosch144(const unsigned char data[], const uint16_t nbytes,
                   kBoschFreq, true, 0, kDutyDefault);
     space(kDefaultMessageGap);  // Complete guess
   }
+#if defined(ESP32_RMT)
+  clearSendRawbuf();
+#endif // ESP32_RMT 
 }
 
 #endif  // SEND_BOSCH144

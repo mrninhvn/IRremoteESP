@@ -275,6 +275,9 @@ void IRsend::sendSamsungAC(const uint8_t data[], const uint16_t nbytes,
     // Complete made up guess at inter-message gap.
     space(kDefaultMessageGap - kSamsungAcSectionGap);
   }
+#ifdef ESP32_RMT
+  clearSendRawbuf();
+#endif
 }
 #endif  // SEND_SAMSUNG_AC
 

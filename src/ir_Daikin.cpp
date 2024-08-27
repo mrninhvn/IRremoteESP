@@ -3355,6 +3355,9 @@ void IRsend::sendDaikin64(const uint64_t data, const uint16_t nbits,
     // Footer #2
     mark(kDaikin64HdrMark);
     space(kDefaultMessageGap);  // A guess of the gap between messages.
+#if defined(ESP32_RMT)
+    sendRaw(this->_sendRawbuf, this->_rawBufCounter, kDaikin64Freq);
+#endif // ESP32_RMT 
   }
 }
 #endif  // SEND_DAIKIN64

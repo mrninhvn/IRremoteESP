@@ -693,6 +693,9 @@ void IRsend::sendSanyoAc88(const uint8_t data[], const uint16_t nbytes,
               kSanyoAc88BitMark, kSanyoAc88Gap,
               data, nbytes, kSanyoAc88Freq, false, repeat, kDutyDefault);
   space(kDefaultMessageGap);  // Make a guess at a post message gap.
+#if defined(ESP32_RMT)
+  clearSendRawbuf();
+#endif // ESP32_RMT 
 }
 #endif  // SEND_SANYO_AC88
 

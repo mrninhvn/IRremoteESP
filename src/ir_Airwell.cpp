@@ -35,6 +35,9 @@ void IRsend::sendAirwell(uint64_t data, uint16_t nbits, uint16_t repeat) {
   // Footer
   mark(kAirwellHdrMark + kAirwellHalfClockPeriod);
   space(kDefaultMessageGap);  // A guess.
+#if defined(ESP32_RMT)
+  sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38000);
+#endif // ESP32_RMT 
 }
 #endif
 

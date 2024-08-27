@@ -63,6 +63,9 @@ void IRsend::sendTranscold(uint64_t data, uint16_t nbits, uint16_t repeat) {
     space(kTranscoldHdrSpace);
     mark(kTranscoldBitMark);
     space(kDefaultMessageGap);
+#if defined(ESP32_RMT)
+    sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38);
+#endif // ESP32_RMT w
   }
 }
 #endif  // SEND_TRANSCOLD

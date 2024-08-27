@@ -63,6 +63,9 @@ void IRsend::sendTrotec(const unsigned char data[], const uint16_t nbytes,
     // More footer
     mark(kTrotecBitMark);
     space(kTrotecGapEnd);
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, 36);
+#endif // ESP32_RMT 
   }
 }
 #endif  // SEND_TROTEC

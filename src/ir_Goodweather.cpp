@@ -55,6 +55,9 @@ void IRsend::sendGoodweather(const uint64_t data, const uint16_t nbits,
     mark(kGoodweatherBitMark);
     space(kDefaultMessageGap);
   }
+#if defined(ESP32_RMT)
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38);
+#endif // ESP32_RMT 
 }
 #endif  // SEND_GOODWEATHER
 

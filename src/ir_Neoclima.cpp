@@ -52,6 +52,9 @@ void IRsend::sendNeoclima(const unsigned char data[], const uint16_t nbytes,
      // Extra footer.
      mark(kNeoclimaBitMark);
      space(kNeoclimaMinGap);
+#if defined(ESP32_RMT)
+     sendRaw(this->_sendRawbuf, this->_rawBufCounter, 38);
+#endif // ESP32_RMT 
   }
 }
 #endif  // SEND_NEOCLIMA
