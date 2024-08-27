@@ -709,7 +709,6 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
     // return;
   }
 
-#if DEBUG
   DPRINTLN("sendRaw ==================================>");
   uint16_t itemLen = len / 2;
   rmt_data_t items[itemLen];
@@ -722,7 +721,6 @@ void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
     DPRINT(items[i].duration1); DPRINT(" ");
   }
   DPRINTLN("\n=============================================\n");
-#endif
 
   #ifdef ARDUINO
   if (!rmtWrite(IRpin, items, RMT_SYMBOLS_OF(items), RMT_WAIT_FOR_EVER)) {
