@@ -711,7 +711,8 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     results->address = 0;
     results->command = 0;
     results->repeat = false;
-    results->rawbuf = new uint16_t[length * 2];
+    // results->rawbuf = new uint16_t[length * 2];
+    results->rawbuf = params.rawbuf;
     results->rawlen = length * 2;
     results->overflow = false;
     for(size_t i=0; i < length; i++) {
@@ -748,7 +749,8 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     results->address = 0;
     results->command = 0;
     results->repeat = false;
-    results->rawbuf = new uint16_t[length * 2];
+    // results->rawbuf = new uint16_t[length * 2];
+    results->rawbuf = params.rawbuf;
     results->rawlen = length * 2;
     results->overflow = false;
     for(size_t i=0; i < length; i++) {
