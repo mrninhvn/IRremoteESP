@@ -43,11 +43,12 @@ const uint16_t kUnknownThreshold = 6;
 // receiver states
 const uint8_t kTolerance = 25;   // default percent tolerance in measurements.
 const uint8_t kUseDefTol = 255;  // Indicate to use the class default tolerance.
-#if !defined(ESP32_RMT)
+// #if !defined(ESP32_RMT)
 const uint8_t kIdleState = 2;
 const uint8_t kMarkState = 3;
 const uint8_t kSpaceState = 4;
 const uint8_t kStopState = 5;
+#if !defined(ESP32_RMT)
 const uint16_t kRawTick = 2;     // Capture tick to uSec factor.
 #else
 const uint16_t kRawTick = 1;     // Capture tick to uSec factor.
@@ -165,11 +166,11 @@ class IRrecv {
 #endif // ESP_PLATFORM
   void enableIRIn(const bool pullup = false);
   void disableIRIn(void);
-#if !defined(ESP32_RMT)
+// #if !defined(ESP32_RMT)
   void pause(void);
   void resume(void);
   uint16_t getBufSize(void);
-#endif // ESP32_RMT
+// #endif // ESP32_RMT
 
 #if DECODE_HASH
   void setUnknownThreshold(const uint16_t length);

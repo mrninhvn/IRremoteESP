@@ -332,6 +332,7 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
   // capture buffer.
   params.timeout = std::min(timeout, (uint8_t)kMaxTimeoutMs);
   params.rawbuf = new uint16_t[bufsize];
+  params.rcvstate = kIdleState;
   if (params.rawbuf == NULL) {
     DPRINTLN(
         "Could not allocate memory for the primary IR buffer.\n"
@@ -474,7 +475,7 @@ void IRrecv::disableIRIn(void) {
 #endif  // UNIT_TEST
 }
 
-#if !defined(ESP32_RMT)
+// #if !defined(ESP32_RMT)
 /// Pause collection of received IR data.
 /// @see IRrecv class constructor
 void IRrecv::pause(void) {
@@ -501,6 +502,7 @@ void IRrecv::resume(void) {
 #endif  // ESP32
 }
 
+#if !defined(ESP32_RMT)
 /// Make a copy of the interrupt state & buffer data.
 /// Needed because irparams is marked as volatile, thus memcpy() isn't allowed.
 /// Only call this when you know the interrupt handlers won't modify anything.
@@ -527,12 +529,13 @@ void IRrecv::copyIrParams(volatile irparams_t *src, irparams_t *dst) {
   // Copy the rawbuf
   for (uint16_t i = 0; i < dst->bufsize; i++) dst->rawbuf[i] = src->rawbuf[i];
 }
+#endif //ESP32_RMT
 
 /// Obtain the maximum number of entries possible in the capture buffer.
 /// i.e. It's size.
 /// @return The size of the buffer that is in use by the object.
 uint16_t IRrecv::getBufSize(void) { return params.bufsize; }
-#endif //ESP32_RMT
+// #endif //ESP32_RMT
 
 #if DECODE_HASH
 /// Set the minimum length we will consider for reporting UNKNOWN message types.
@@ -729,7 +732,12 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     // DPRINTLN("No RMT data read...");
     results->overflow = true;
   }
-  #elif defined(ESP_PLATFORM)
+#elif defined(ESP_PLATFORM)
+
+  #ifndef UNIT_TEST
+    if (params.rcvstate != kIdleState) return false;
+  #endif
+
   if (!_irrmt.read(items, &length, true, RMT_WAIT_FOR_EVER)){
     return false;
   }
@@ -767,7 +775,7 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     // DPRINTLN("No RMT data read...");
     results->overflow = true;
   }
-  #endif
+#endif
 
 #endif // ESP32_RMT
   // Keep looking for protocols until we've run out of entries to skip or we
