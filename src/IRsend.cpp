@@ -492,8 +492,8 @@ void IRsend::sendGeneric(const uint16_t headermark, const uint32_t headerspace,
     DPRINT(this->_sendRawbuf[i]); DPRINT(" ");
   }
   DPRINTLN("\n=============================================\n");
-  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
 #endif // DEBUG
+  this->sendRaw(this->_sendRawbuf, this->_rawBufCounter, frequency);
 #endif // ESP32_RMT  
 }
 
