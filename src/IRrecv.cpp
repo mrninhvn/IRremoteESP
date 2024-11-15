@@ -1430,7 +1430,7 @@ bool IRrecv::enableDecodeLoop(decode_results *results, void (*func_ptr)(void),
   #ifdef DEBUG
   uint32_t decodeStackDepth = 1024*6;
   #else
-  uint32_t decodeStackDepth = 1024*5;
+  uint32_t decodeStackDepth = 1024*5+512;
   #endif
   if (xTaskCreate(decode_loop_task, "decode_loop_task", decodeStackDepth, decodeParams, tskIDLE_PRIORITY, &decodeLoopHandler) == pdPASS) {
     return true;
