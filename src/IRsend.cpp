@@ -687,9 +687,10 @@ void IRsend::sendManchester(const uint16_t headermark,
 ///   examples/IRrecvDumpV2/IRrecvDumpV2.ino (or later)
 void IRsend::sendRaw(const uint16_t buf[], const uint16_t len,
                      const uint16_t hz) {
-#ifndef ESP32_RMT
   // Set IR carrier frequency
   enableIROut(hz);
+
+#ifndef ESP32_RMT
   for (uint16_t i = 0; i < len; i++) {
     if (i & 1) {  // Odd bit.
       space(buf[i]);
