@@ -31,6 +31,7 @@ String resultToTimingInfo(const decode_results * const results);
 String resultToHumanReadableBasic(const decode_results * const results);
 String resultToHexidecimal(const decode_results * const result);
 bool hasACState(const decode_type_t protocol);
+bool hasACPowerToggles(const decode_type_t protocol);
 uint16_t getCorrectedRawLength(const decode_results * const results);
 uint16_t *resultToRawArray(const decode_results * const decode);
 uint8_t sumBytes(const uint8_t * const start, const uint16_t length,

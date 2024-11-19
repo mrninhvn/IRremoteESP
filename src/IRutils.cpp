@@ -177,6 +177,7 @@ bool hasACState(const decode_type_t protocol) {
     case CARRIER_AC128:
     case CORONA_AC:
     case DAIKIN:
+    case DAIKIN64:
     case DAIKIN128:
     case DAIKIN152:
     case DAIKIN160:
@@ -226,6 +227,20 @@ bool hasACState(const decode_type_t protocol) {
     case VOLTAS:
     case WHIRLPOOL_AC:
     case YORK:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool hasACPowerToggles(const decode_type_t protocol){
+  switch (protocol) {
+    case DAIKIN128:
+    case AIRWELL:
+    case DAIKIN64:
+    case PANASONIC_AC32:
+    case WHIRLPOOL_AC:
+    case PANASONIC_AC:
       return true;
     default:
       return false;

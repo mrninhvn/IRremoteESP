@@ -342,6 +342,25 @@ bool IRrmt::readCompleted(){
   return ret;
 }
 
+bool IRrmt::pause(){
+  esp_err_t err = rmt_disable(this->_rmt_bus->rmt_channel_h);
+  if (err){
+    ESP_LOGE(RMT_TAG, "GPIO %d - RMT pause error=%s", this->_rmt_pin, esp_err_to_name(err));
+    return false;
+  }
+  return true;
+}
+
+bool IRrmt::resume(){
+  esp_err_t err = rmt_enable(this->_rmt_bus->rmt_channel_h);
+  if (err){
+    ESP_LOGE(RMT_TAG, "GPIO %d - RMT resume error=%s", this->_rmt_pin, esp_err_to_name(err));
+    return false;
+  }
+  // xEventGroupSetBits(this->_rmt_bus->rmt_events, RMT_FLAG_RX_DONE | RMT_FLAG_TX_DONE);
+  return true;
+}
+
 bool IRrmt::end() {
   if (this->_rmt_bus == NULL) return false;
 

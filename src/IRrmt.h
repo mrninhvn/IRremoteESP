@@ -197,6 +197,8 @@ class IRrmt {
     bool write(rmt_data_t *data, size_t num_rmt_symbols, bool blocking, uint32_t timeout_ms);
     bool read(rmt_data_t *data, size_t *num_rmt_symbols, bool wait_for_data, uint32_t timeout_ms);
     bool readCompleted();
+    bool pause();
+    bool resume();
     bool end();
 
   protected:

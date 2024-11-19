@@ -166,11 +166,9 @@ class IRrecv {
 #endif // ESP_PLATFORM
   void enableIRIn(const bool pullup = false);
   void disableIRIn(void);
-// #if !defined(ESP32_RMT)
   void pause(void);
   void resume(void);
   uint16_t getBufSize(void);
-// #endif // ESP32_RMT
 
 #if DECODE_HASH
   void setUnknownThreshold(const uint16_t length);
@@ -206,6 +204,7 @@ class IRrecv {
 #if defined(ESP_PLATFORM) && !defined(ARDUINO)
   uint16_t _recvpin;
   IRrmt _irrmt = IRrmt(_recvpin, RMT_RX_MODE, false);
+  TaskHandle_t _decodeLoopHandler;
 #endif // ESP_PLATFORM
 
 #if DECODE_HASH

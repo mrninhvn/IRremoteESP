@@ -310,6 +310,7 @@ IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
 ///   (Default: false)
 IRrecv::IRrecv(const uint16_t recvpin, const uint16_t bufsize,
                const uint8_t timeout, const bool save_buffer) : _recvpin(recvpin) {
+  _decodeLoopHandler = NULL;
 #else  // ESP32
 /// @cond IGNORE
 /// Class constructor
@@ -475,16 +476,22 @@ void IRrecv::disableIRIn(void) {
 #endif  // UNIT_TEST
 }
 
-// #if !defined(ESP32_RMT)
 /// Pause collection of received IR data.
 /// @see IRrecv class constructor
 void IRrecv::pause(void) {
+#ifdef ESP32_RMT
+  _irrmt.pause();
+  if (_decodeLoopHandler != NULL) {
+    vTaskSuspend(_decodeLoopHandler);
+  }
+#else
   params.rcvstate = kStopState;
   params.rawlen = 0;
   params.overflow = false;
 #if defined(ESP32)
   gpio_intr_disable((gpio_num_t)params.recvpin);
 #endif  // ESP32
+#endif  // ESP32_RMT
 }
 
 /// Resume collection of received IR data.
@@ -492,6 +499,12 @@ void IRrecv::pause(void) {
 ///   not set when the class was instanciated.
 /// @see IRrecv class constructor
 void IRrecv::resume(void) {
+#ifdef ESP32_RMT
+  _irrmt.resume();
+  if (_decodeLoopHandler != NULL) {
+    vTaskResume(_decodeLoopHandler);
+  }
+#else
   params.rcvstate = kIdleState;
   params.rawlen = 0;
   params.overflow = false;
@@ -500,6 +513,7 @@ void IRrecv::resume(void) {
   gpio_intr_enable((gpio_num_t)params.recvpin);
   gpio_intr_enable((gpio_num_t)params.recvpin);
 #endif  // ESP32
+#endif  // ESP32_RMT
 }
 
 #if !defined(ESP32_RMT)
@@ -734,10 +748,6 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
   }
 #elif defined(ESP_PLATFORM)
 
-  #ifndef UNIT_TEST
-    if (params.rcvstate != kIdleState) return false;
-  #endif
-
   if (!_irrmt.read(items, &length, true, RMT_WAIT_FOR_EVER)){
     return false;
   }
@@ -775,7 +785,8 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     // DPRINTLN("No RMT data read...");
     results->overflow = true;
   }
-#endif
+
+#endif // ESP_PLATFORM
 
 #endif // ESP32_RMT
   // Keep looking for protocols until we've run out of entries to skip or we
@@ -1393,8 +1404,6 @@ typedef struct decode_loop_params {
   uint16_t noise_floor;
 } decode_loop_params_t;
 
-static TaskHandle_t decodeLoopHandler = NULL;
-
 static void decode_loop_task(void *arg){
   // decode_loop_params_t *decodeParams = (decode_loop_params_t *) arg;
   decode_loop_params_t decodeParams;
@@ -1423,27 +1432,27 @@ bool IRrecv::enableDecodeLoop(decode_results *results, void (*func_ptr)(void),
   decodeParams->max_skip = max_skip;
   decodeParams->noise_floor = noise_floor;
 
-  if (decodeLoopHandler != NULL) {
-    vTaskDelete(decodeLoopHandler);
-    decodeLoopHandler = NULL;
+  if (_decodeLoopHandler != NULL) {
+    vTaskDelete(_decodeLoopHandler);
+    _decodeLoopHandler = NULL;
   }
   #ifdef DEBUG
   uint32_t decodeStackDepth = 1024*6;
   #else
   uint32_t decodeStackDepth = 1024*5+512;
   #endif
-  if (xTaskCreate(decode_loop_task, "decode_loop_task", decodeStackDepth, decodeParams, tskIDLE_PRIORITY, &decodeLoopHandler) == pdPASS) {
+  if (xTaskCreate(decode_loop_task, "decode_loop_task", decodeStackDepth, decodeParams, tskIDLE_PRIORITY, &_decodeLoopHandler) == pdPASS) {
     return true;
   }
   return false;
 }
 
 bool IRrecv::disableDecodeLoop(void){
-  if (decodeLoopHandler == NULL) {
+  if (_decodeLoopHandler == NULL) {
     return false;
   }
-  vTaskDelete(decodeLoopHandler);
-  decodeLoopHandler = NULL;
+  vTaskDelete(_decodeLoopHandler);
+  _decodeLoopHandler = NULL;
   return true;
 }
 #endif
