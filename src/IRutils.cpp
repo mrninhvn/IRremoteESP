@@ -252,8 +252,13 @@ bool hasACPowerToggles(const decode_type_t protocol){
 /// @param[in] results A ptr to a decode_results structure.
 /// @return The corrected length.
 uint16_t getCorrectedRawLength(const decode_results * const results) {
+#ifdef ESP32_RMT
+  uint16_t extended_length = results->rawlen;
+  for (uint16_t i = 0; i < results->rawlen; i++) {
+#else
   uint16_t extended_length = results->rawlen - 1;
   for (uint16_t i = 0; i < results->rawlen - 1; i++) {
+#endif // ESP32_RMT
     uint32_t usecs = results->rawbuf[i] * kRawTick;
     // Add two extra entries for multiple larger than UINT16_MAX it is.
     extended_length += (usecs / (UINT16_MAX + 1)) * 2;
@@ -445,7 +450,11 @@ uint16_t* resultToRawArray(const decode_results * const decode) {
   if (result != NULL) {  // The memory was allocated successfully.
     // Convert the decode data.
     uint16_t pos = 0;
+#ifdef ESP32_RMT
+    for (uint16_t i = 0; i < decode->rawlen; i++) {
+#else
     for (uint16_t i = 1; i < decode->rawlen; i++) {
+#endif // ESP32_RMT
       uint32_t usecs = decode->rawbuf[i] * kRawTick;
       while (usecs > UINT16_MAX) {  // Keep truncating till it fits.
         result[pos++] = UINT16_MAX;
