@@ -754,6 +754,8 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
   if (_irrmt.readCompleted()) {
     DPRINT("rmtRead length: ");
     DPRINTLN(length);
+
+    #if DEBUG
     for (uint8_t i=0; i<length; i++){
       DPRINT(items[i].duration0);
       DPRINT(", ");
@@ -761,6 +763,8 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
       DPRINT(", ");
     }
     DPRINTLN("");
+    #endif // DEBUG
+  
     results->decode_type = UNKNOWN;
     results->bits = 0;
     results->value = 0;
@@ -771,6 +775,10 @@ bool IRrecv::decode(decode_results *results, irparams_t *save,
     results->rawbuf = params.rawbuf;
     results->rawlen = length * 2;
     results->overflow = false;
+    if (results->rawlen > params.bufsize) {
+      results->overflow = true;
+      DPRINT("RMT data overflow!!!\n");
+    }
     for(size_t i=0; i < length; i++) {
       results->rawbuf[i * 2] = items[i].duration0;
       DPRINT(results->rawbuf[i * 2]);
